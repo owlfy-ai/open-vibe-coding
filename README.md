@@ -6,8 +6,6 @@ README: [English](./README.md) | [中文](./README.zh-CN.md)
 
 <video src="https://github.com/user-attachments/assets/66064976-1e5a-470c-ad25-35dbba64203a" controls width="100%"></video>
 
-[Watch the demo video](https://github.com/user-attachments/assets/66064976-1e5a-470c-ad25-35dbba64203a)
-
 ## Highlights
 
 - Chat with an Agent to create and modify Web applications.

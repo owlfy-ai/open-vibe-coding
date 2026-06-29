@@ -6,8 +6,6 @@ README: [English](./README.md) | [中文](./README.zh-CN.md)
 
 <video src="https://github.com/user-attachments/assets/825c82e0-1fa6-46d5-8e08-af87bf5827c4" controls width="100%"></video>
 
-[观看演示视频](https://github.com/user-attachments/assets/825c82e0-1fa6-46d5-8e08-af87bf5827c4)
-
 ## 功能亮点
 
 - 通过聊天让 Agent 创建和修改 Web 应用。
