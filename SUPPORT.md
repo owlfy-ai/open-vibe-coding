@@ -1,6 +1,6 @@
 # Support
 
-Web Vibe Coding is provided as an open source project.
+Open Vibe Coding is provided as an open source project.
 
 ## Getting Help
 

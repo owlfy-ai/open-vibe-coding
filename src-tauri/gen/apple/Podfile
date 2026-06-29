@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'web-vibe-coding_iOS' do
+target 'open-vibe-coding_iOS' do
 platform :ios, '14.0'
-  # Pods for web-vibe-coding_iOS
+  # Pods for open-vibe-coding_iOS
 end
 
-target 'web-vibe-coding_macOS' do
+target 'open-vibe-coding_macOS' do
 platform :osx, '11.0'
-  # Pods for web-vibe-coding_macOS
+  # Pods for open-vibe-coding_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile

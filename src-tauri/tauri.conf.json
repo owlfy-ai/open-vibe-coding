@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "web-vibe-coding",
+  "productName": "open-vibe-coding",
   "version": "1.3.0",
   "identifier": "app.web.vibecoding",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "web-vibe-coding",
+        "title": "open-vibe-coding",
         "width": 1024,
         "height": 768
       }

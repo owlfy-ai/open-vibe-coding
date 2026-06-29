@@ -1,4 +1,4 @@
-name: web-vibe-coding
+name: open-vibe-coding
 options:
   bundleIdPrefix: app.web.vibecoding
   deploymentTarget:
@@ -10,7 +10,7 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: web-vibe-coding
+      PRODUCT_NAME: open-vibe-coding
       PRODUCT_BUNDLE_IDENTIFIER: app.web.vibecoding
 targetTemplates:
   app:
@@ -24,20 +24,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  web-vibe-coding_iOS:
+  open-vibe-coding_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: web-vibe-coding_iOS
+      - path: open-vibe-coding_iOS
       - path: assets
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: web-vibe-coding_iOS/Info.plist
+      path: open-vibe-coding_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -54,7 +54,7 @@ targets:
         CFBundleShortVersionString: 1.2.0
         CFBundleVersion: "1.2.0"
     entitlements:
-      path: web-vibe-coding_iOS/web-vibe-coding_iOS.entitlements
+      path: open-vibe-coding_iOS/open-vibe-coding_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

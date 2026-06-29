@@ -23,10 +23,10 @@
 
 /* Begin PBXFileReference section */
 		14E546E3FEA3680D37B92593 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
-		2ECC8D6C6E9AE7A8C63618BE /* web-vibe-coding_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "web-vibe-coding_iOS.entitlements"; sourceTree = "<group>"; };
+		2ECC8D6C6E9AE7A8C63618BE /* open-vibe-coding_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "open-vibe-coding_iOS.entitlements"; sourceTree = "<group>"; };
 		35BA2687DBFD75C85DA3E3BC /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		43544AF36A20F322BF8BB269 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
-		545387C968BB5AFD2ECB866D /* web-vibe-coding_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "web-vibe-coding_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		545387C968BB5AFD2ECB866D /* open-vibe-coding_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "open-vibe-coding_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		599482DA599B8734E77518D5 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		5BFE027F9EAD9D673753C334 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		5DBE85693727B6D86DAA0471 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -61,13 +61,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		497FE9E0D711D67460BAED9C /* web-vibe-coding_iOS */ = {
+		497FE9E0D711D67460BAED9C /* open-vibe-coding_iOS */ = {
 			isa = PBXGroup;
 			children = (
 				A0F334B7CEA2BAC7F0AEF4EC /* Info.plist */,
-				2ECC8D6C6E9AE7A8C63618BE /* web-vibe-coding_iOS.entitlements */,
+				2ECC8D6C6E9AE7A8C63618BE /* open-vibe-coding_iOS.entitlements */,
 			);
-			path = "web-vibe-coding_iOS";
+			path = "open-vibe-coding_iOS";
 			sourceTree = "<group>";
 		};
 		4C7225DC3526B7F3A2159801 /* Externals */ = {
@@ -80,7 +80,7 @@
 		51D9099B0004B38C76D5EBDB /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F1D92EE15737A37B56D7049B /* web-vibe-coding */,
+				F1D92EE15737A37B56D7049B /* open-vibe-coding */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -88,7 +88,7 @@
 		687FD0182B5A740472517675 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				545387C968BB5AFD2ECB866D /* web-vibe-coding_iOS.app */,
+				545387C968BB5AFD2ECB866D /* open-vibe-coding_iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -100,7 +100,7 @@
 				621D261383FBE04B1D95736B /* Assets.xcassets */,
 				EDA7DDEAE62D8BCE789553AC /* LaunchScreen.storyboard */,
 				4C7225DC3526B7F3A2159801 /* Externals */,
-				497FE9E0D711D67460BAED9C /* web-vibe-coding_iOS */,
+				497FE9E0D711D67460BAED9C /* open-vibe-coding_iOS */,
 				51D9099B0004B38C76D5EBDB /* Sources */,
 				F74541AAA88102DFA828C234 /* src */,
 				93C1886C95BCD21CF2240ABB /* Frameworks */,
@@ -131,13 +131,13 @@
 			path = bindings;
 			sourceTree = "<group>";
 		};
-		F1D92EE15737A37B56D7049B /* web-vibe-coding */ = {
+		F1D92EE15737A37B56D7049B /* open-vibe-coding */ = {
 			isa = PBXGroup;
 			children = (
 				6E72015511B7D1369C2F29A9 /* main.mm */,
 				ED1E37EA6201DD6C8AF371FD /* bindings */,
 			);
-			path = "web-vibe-coding";
+			path = "open-vibe-coding";
 			sourceTree = "<group>";
 		};
 		F74541AAA88102DFA828C234 /* src */ = {
@@ -153,9 +153,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		435FF7E83518DA7E325E992A /* web-vibe-coding_iOS */ = {
+		435FF7E83518DA7E325E992A /* open-vibe-coding_iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2C7E762EFFC1797AAC013730 /* Build configuration list for PBXNativeTarget "web-vibe-coding_iOS" */;
+			buildConfigurationList = 2C7E762EFFC1797AAC013730 /* Build configuration list for PBXNativeTarget "open-vibe-coding_iOS" */;
 			buildPhases = (
 				9A3D1E6E0160938210317187 /* Build Rust Code */,
 				44C1CDD04E13554E481CB669 /* Sources */,
@@ -166,11 +166,11 @@
 			);
 			dependencies = (
 			);
-			name = "web-vibe-coding_iOS";
+			name = "open-vibe-coding_iOS";
 			packageProductDependencies = (
 			);
-			productName = "web-vibe-coding_iOS";
-			productReference = 545387C968BB5AFD2ECB866D /* web-vibe-coding_iOS.app */;
+			productName = "open-vibe-coding_iOS";
+			productReference = 545387C968BB5AFD2ECB866D /* open-vibe-coding_iOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -182,7 +182,7 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 			};
-			buildConfigurationList = 1AB330546B5192DC263EA91D /* Build configuration list for PBXProject "web-vibe-coding" */;
+			buildConfigurationList = 1AB330546B5192DC263EA91D /* Build configuration list for PBXProject "open-vibe-coding" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -196,7 +196,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				435FF7E83518DA7E325E992A /* web-vibe-coding_iOS */,
+				435FF7E83518DA7E325E992A /* open-vibe-coding_iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -314,7 +314,7 @@
 					arm64,
 				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = "web-vibe-coding_iOS/web-vibe-coding_iOS.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "open-vibe-coding_iOS/open-vibe-coding_iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
@@ -322,7 +322,7 @@
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = "web-vibe-coding_iOS/Info.plist";
+				INFOPLIST_FILE = "open-vibe-coding_iOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -330,7 +330,7 @@
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = app.web.vibecoding;
-				PRODUCT_NAME = "web-vibe-coding";
+				PRODUCT_NAME = "open-vibe-coding";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -408,7 +408,7 @@
 					arm64,
 				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = "web-vibe-coding_iOS/web-vibe-coding_iOS.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "open-vibe-coding_iOS/open-vibe-coding_iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
@@ -416,7 +416,7 @@
 					"$(inherited)",
 					"\".\"",
 				);
-				INFOPLIST_FILE = "web-vibe-coding_iOS/Info.plist";
+				INFOPLIST_FILE = "open-vibe-coding_iOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -424,7 +424,7 @@
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = app.web.vibecoding;
-				PRODUCT_NAME = "web-vibe-coding";
+				PRODUCT_NAME = "open-vibe-coding";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -434,7 +434,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1AB330546B5192DC263EA91D /* Build configuration list for PBXProject "web-vibe-coding" */ = {
+		1AB330546B5192DC263EA91D /* Build configuration list for PBXProject "open-vibe-coding" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B749CB58B9C206EAD09067A0 /* debug */,
@@ -443,7 +443,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = debug;
 		};
-		2C7E762EFFC1797AAC013730 /* Build configuration list for PBXNativeTarget "web-vibe-coding_iOS" */ = {
+		2C7E762EFFC1797AAC013730 /* Build configuration list for PBXNativeTarget "open-vibe-coding_iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				393B9DC93D72290CC1671BDC /* debug */,

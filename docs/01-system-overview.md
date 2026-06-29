@@ -2,7 +2,7 @@
 
 ## Product Capabilities
 
-Web Vibe Coding provides a creation environment built around chat, live preview, and editable code:
+Open Vibe Coding provides a creation environment built around chat, live preview, and editable code:
 
 1. Users enter natural-language prompts in the chat area and can attach images.
 2. The Agent calls a model and executes project tools to create, read, search, modify, or delete project files.

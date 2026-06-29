@@ -8,11 +8,11 @@ import type { PreviewCoordinator, PreviewElementPromptRequest, PreviewElementSel
 import { SandpackBridge } from "./SandpackBridge";
 import { instrumentPreviewSources, PREVIEW_SOURCE_ATTR, type RuntimeFiles } from "./source-instrumentation";
 
-const PREVIEW_ERROR_SOURCE = "web-vibe-coding.preview-error";
-const PREVIEW_SELECT_SOURCE = "web-vibe-coding.preview-select";
-const PREVIEW_SELECT_COMMAND_SOURCE = "web-vibe-coding.preview-select-command";
-const PREVIEW_ERROR_CAPTURE_MARKER = "web-vibe-coding-preview-error-capture";
-const PREVIEW_SELECT_CAPTURE_MARKER = "web-vibe-coding-preview-select-capture";
+const PREVIEW_ERROR_SOURCE = "open-vibe-coding.preview-error";
+const PREVIEW_SELECT_SOURCE = "open-vibe-coding.preview-select";
+const PREVIEW_SELECT_COMMAND_SOURCE = "open-vibe-coding.preview-select-command";
+const PREVIEW_ERROR_CAPTURE_MARKER = "open-vibe-coding-preview-error-capture";
+const PREVIEW_SELECT_CAPTURE_MARKER = "open-vibe-coding-preview-select-capture";
 const PREVIEW_ERROR_CAPTURE_SCRIPT = `(() => {
   const source = ${JSON.stringify(PREVIEW_ERROR_SOURCE)};
   const send = (payload) => {

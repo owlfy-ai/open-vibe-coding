@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "435FF7E83518DA7E325E992A"
-               BuildableName = "web-vibe-coding_iOS.app"
-               BlueprintName = "web-vibe-coding_iOS"
-               ReferencedContainer = "container:web-vibe-coding.xcodeproj">
+               BuildableName = "open-vibe-coding_iOS.app"
+               BlueprintName = "open-vibe-coding_iOS"
+               ReferencedContainer = "container:open-vibe-coding.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "435FF7E83518DA7E325E992A"
-            BuildableName = "web-vibe-coding_iOS.app"
-            BlueprintName = "web-vibe-coding_iOS"
-            ReferencedContainer = "container:web-vibe-coding.xcodeproj">
+            BuildableName = "open-vibe-coding_iOS.app"
+            BlueprintName = "open-vibe-coding_iOS"
+            ReferencedContainer = "container:open-vibe-coding.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -70,9 +70,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "435FF7E83518DA7E325E992A"
-            BuildableName = "web-vibe-coding_iOS.app"
-            BlueprintName = "web-vibe-coding_iOS"
-            ReferencedContainer = "container:web-vibe-coding.xcodeproj">
+            BuildableName = "open-vibe-coding_iOS.app"
+            BlueprintName = "open-vibe-coding_iOS"
+            ReferencedContainer = "container:open-vibe-coding.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -101,9 +101,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "435FF7E83518DA7E325E992A"
-            BuildableName = "web-vibe-coding_iOS.app"
-            BlueprintName = "web-vibe-coding_iOS"
-            ReferencedContainer = "container:web-vibe-coding.xcodeproj">
+            BuildableName = "open-vibe-coding_iOS.app"
+            BlueprintName = "open-vibe-coding_iOS"
+            ReferencedContainer = "container:open-vibe-coding.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

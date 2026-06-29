@@ -1,6 +1,6 @@
 # Privacy Notes
 
-Web Vibe Coding is a client-first application. Project files, conversation data, settings, and memory are stored locally by the application unless users configure external services or deploy their own hosting.
+Open Vibe Coding is a client-first application. Project files, conversation data, settings, and memory are stored locally by the application unless users configure external services or deploy their own hosting.
 
 ## Local Data
 

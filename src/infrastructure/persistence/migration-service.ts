@@ -14,10 +14,10 @@ import {
 import type { KeyValueStorage } from "./storage";
 
 const LEGACY_KEYS = {
-  settings: "web-vibe-coding-settings",
-  conversations: "web-vibe-coding-conversations",
-  snapshots: "web-vibe-coding-snapshots",
-  memories: "web-vibe-coding-memories",
+  settings: "open-vibe-coding-settings",
+  conversations: "open-vibe-coding-conversations",
+  snapshots: "open-vibe-coding-snapshots",
+  memories: "open-vibe-coding-memories",
 } as const;
 
 export interface LegacyStorageSources {

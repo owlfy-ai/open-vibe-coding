@@ -65,8 +65,8 @@ export interface BrowserPersistenceStores {
 }
 
 export function createBrowserPersistenceStores(): BrowserPersistenceStores {
-  const legacySnapshots = localforage.createInstance({ name: "web-vibe-coding-snapshots" });
-  const legacyMemories = localforage.createInstance({ name: "web-vibe-coding-memories" });
+  const legacySnapshots = localforage.createInstance({ name: "open-vibe-coding-snapshots" });
+  const legacyMemories = localforage.createInstance({ name: "open-vibe-coding-memories" });
   return {
     target: new BrowserStorageAdapter(window.localStorage),
     legacy: {

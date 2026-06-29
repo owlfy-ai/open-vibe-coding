@@ -5,7 +5,7 @@ import type { MemoryItem } from "@/domain/memory";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/domain/settings";
 
 export const CURRENT_DATABASE_VERSION = 1 as const;
-export const DATABASE_STORAGE_KEY = "web-vibe-coding-database-v1";
+export const DATABASE_STORAGE_KEY = "open-vibe-coding-database-v1";
 
 export interface PersistedProject {
   readonly revision: number;

@@ -45,7 +45,7 @@ The proxy does not handle same-origin requests, `data:`, `blob:`, or already pro
 The Web build can use:
 
 ```bash
-VITE_BASE_PATH=/web-vibe-coding/
+VITE_BASE_PATH=/open-vibe-coding/
 ```
 
 This is mainly used when deploying to GitHub Pages under a repository subpath.

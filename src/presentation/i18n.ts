@@ -5,9 +5,9 @@ export type UiLanguage = "zh" | "en";
 
 const zh = {
   app: {
-    name: "Web Vibe Coding",
-    loading: "正在加载 Web Vibe Coding…",
-    startFailed: "Web Vibe Coding 无法启动",
+    name: "Open Vibe Coding",
+    loading: "正在加载 Open Vibe Coding…",
+    startFailed: "Open Vibe Coding 无法启动",
     dataSafe: "已有本地数据未被修改。",
   },
   sidebar: {
@@ -30,7 +30,7 @@ const zh = {
   chat: {
     noProject: "还没开始创作",
     whatBuild: "今天想创造什么小应用？",
-    welcomeDescription: "用一句话说出想法，Web Vibe Coding 会陪孩子一步步把它变成能玩的网页应用。",
+    welcomeDescription: "用一句话说出想法，Open Vibe Coding 会陪孩子一步步把它变成能玩的网页应用。",
     configureProvider: "配置 AI 服务后即可开始创作",
     inputPlaceholder: "说出你的点子，比如：做一个星星收集小游戏…",
     attach: "附件",
@@ -150,9 +150,9 @@ const zh = {
 
 const en: typeof zh = {
   app: {
-    name: "Web Vibe Coding",
-    loading: "Loading Web Vibe Coding…",
-    startFailed: "Web Vibe Coding could not start",
+    name: "Open Vibe Coding",
+    loading: "Loading Open Vibe Coding…",
+    startFailed: "Open Vibe Coding could not start",
     dataSafe: "Your existing local data was not modified.",
   },
   sidebar: {
@@ -175,7 +175,7 @@ const en: typeof zh = {
   chat: {
     noProject: "No creation yet",
     whatBuild: "What little app should we create today?",
-    welcomeDescription: "Share an idea in plain language. Web Vibe Coding helps turn it into a playful web app step by step.",
+    welcomeDescription: "Share an idea in plain language. Open Vibe Coding helps turn it into a playful web app step by step.",
     configureProvider: "Configure an AI provider to start creating",
     inputPlaceholder: "Share an idea, like: make a star collecting game…",
     attach: "Attach",

@@ -44,7 +44,7 @@ describe("application bootstrap", () => {
   });
 
   it("surfaces a recoverable error and leaves corrupt legacy data untouched", async () => {
-    const legacyConversationsKey = "web-vibe-coding-conversations";
+    const legacyConversationsKey = "open-vibe-coding-conversations";
     const legacy = new InMemoryKeyValueStorage({
       [legacyConversationsKey]: "{broken",
     });

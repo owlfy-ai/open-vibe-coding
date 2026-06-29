@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to Web Vibe Coding.
+Thank you for your interest in contributing to Open Vibe Coding.
 
 ## Development Setup
 

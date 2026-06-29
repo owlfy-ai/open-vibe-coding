@@ -8,10 +8,10 @@ The Web app can be deployed to GitHub Pages. The workflow builds the app with:
 VITE_BASE_PATH=/${{ github.event.repository.name }}/
 ```
 
-For the repository `owlfy-ai/web-vibe-coding`, the expected base path is:
+For the repository `owlfy-ai/open-vibe-coding`, the expected base path is:
 
 ```bash
-/web-vibe-coding/
+/open-vibe-coding/
 ```
 
 ## Desktop Releases

@@ -5,7 +5,7 @@ import { DatabaseMigrationService } from "./migration-service";
 import { DATABASE_STORAGE_KEY } from "./schema";
 import { InMemoryKeyValueStorage } from "./storage";
 
-const LEGACY_CONVERSATIONS_KEY = "web-vibe-coding-conversations";
+const LEGACY_CONVERSATIONS_KEY = "open-vibe-coding-conversations";
 
 function sources(conversations: InMemoryKeyValueStorage) {
   return {

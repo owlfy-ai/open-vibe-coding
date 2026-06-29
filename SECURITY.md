@@ -14,7 +14,7 @@ Open an issue with a minimal, non-sensitive description and clearly mark it as s
 
 ## Sensitive Data
 
-Web Vibe Coding can handle user-provided API keys for AI, search, and image providers. Do not include real credentials in bug reports, screenshots, logs, or pull requests.
+Open Vibe Coding can handle user-provided API keys for AI, search, and image providers. Do not include real credentials in bug reports, screenshots, logs, or pull requests.
 
 ## Supported Versions
 

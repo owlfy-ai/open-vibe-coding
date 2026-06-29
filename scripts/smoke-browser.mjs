@@ -25,7 +25,7 @@ preview.stderr.on("data", (chunk) => {
 try {
   await waitForPreview(preview, url);
   const required = [
-    ["Web Vibe Coding"],
+    ["Open Vibe Coding"],
     ["What little app should we create today?", "今天想创造什么小应用？"],
     ["Configure an AI provider to start creating", "配置 AI 服务后即可开始创作"],
     ["The creation appears here live", "作品会实时显示在这里"],
@@ -75,7 +75,7 @@ function dumpDom(targetUrl, chromePath) {
     let output = "";
     let error = "";
     let settled = false;
-    const profile = mkdtempSync(join(tmpdir(), "web-vibe-coding-chrome-smoke-"));
+    const profile = mkdtempSync(join(tmpdir(), "open-vibe-coding-chrome-smoke-"));
     const child = spawn(chromePath, [
       "--headless=new",
       "--disable-gpu",

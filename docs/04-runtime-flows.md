@@ -83,7 +83,7 @@ The code editor is owned by the application, not by Sandpack's built-in editor. 
 ```text
 Preview iframe
   -> injected error capture script
-  -> postMessage(web-vibe-coding.preview-error)
+  -> postMessage(open-vibe-coding.preview-error)
   -> SandpackRuntime host listener
   -> PreviewCoordinator.markFailed
   -> PreviewCoordinator.recordConsole

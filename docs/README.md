@@ -1,8 +1,8 @@
-# Web Vibe Coding Design Documents
+# Open Vibe Coding Design Documents
 
-This directory describes the current Web Vibe Coding implementation: product boundaries, technical framework, module responsibilities, and key runtime mechanisms. It is intended to support future development, debugging, and architecture reviews.
+This directory describes the current Open Vibe Coding implementation: product boundaries, technical framework, module responsibilities, and key runtime mechanisms. It is intended to support future development, debugging, and architecture reviews.
 
-Web Vibe Coding is an online vibe coding agent for beginners. Users describe ideas with natural language and images. The Agent creates or modifies Web application files through project tools. Sandpack compiles and previews the result in a browser iframe, and console output plus runtime errors feed back into the Agent for diagnosis and repair.
+Open Vibe Coding is an online vibe coding agent for beginners. Users describe ideas with natural language and images. The Agent creates or modifies Web application files through project tools. Sandpack compiles and previews the result in a browser iframe, and console output plus runtime errors feed back into the Agent for diagnosis and repair.
 
 ## Document Index
 

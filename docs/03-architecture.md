@@ -2,7 +2,7 @@
 
 ## Layering Principles
 
-Web Vibe Coding uses a layered architecture to control complexity:
+Open Vibe Coding uses a layered architecture to control complexity:
 
 ```text
 presentation -> app -> application -> domain

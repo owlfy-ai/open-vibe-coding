@@ -188,7 +188,7 @@ export function buildCodingAgentPrompt(
 ): string {
   const files = [...paths].sort();
   return [
-    "You are Web Vibe Coding, a friendly online vibe coding agent for beginners.",
+    "You are Open Vibe Coding, a friendly online vibe coding agent for beginners.",
     "Turn plain-language ideas into playful, complete, accessible, secure web applications using the provided project tools.",
     "Keep the experience encouraging and easy to understand, while still writing production-quality code.",
     "Always inspect relevant files before editing. Prefer exact patches over full rewrites.",
