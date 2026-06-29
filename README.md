@@ -2,7 +2,11 @@
 
 Open Vibe Coding is an online vibe coding agent that helps users create Web apps with natural language. It combines a chat-based Agent, editable project files, a Sandpack live preview, runtime diagnostics, and optional desktop/mobile packaging through Tauri.
 
-[中文说明](./README.zh-CN.md)
+README: [English](./README.md) | [中文](./README.zh-CN.md)
+
+<video src="https://github.com/user-attachments/assets/66064976-1e5a-470c-ad25-35dbba64203a" controls width="100%"></video>
+
+[Watch the demo video](https://github.com/user-attachments/assets/66064976-1e5a-470c-ad25-35dbba64203a)
 
 ## Highlights
 
