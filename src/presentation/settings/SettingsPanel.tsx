@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { getOperationsConfig } from "@/app/operations-config";
 import type { MemoryId } from "@/domain/memory";
 import type {
   AppSettings,
@@ -18,6 +19,7 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const [tab, setTab] = useState<"model" | "research" | "appearance" | "memory">("model");
   const [saving, setSaving] = useState(false);
   const t = dictionary(resolveLanguage(settings.system.language));
+  const operations = getOperationsConfig();
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -44,33 +46,40 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
           </nav>
           <section className="ob-settings-content">
             {tab === "model" ? (
-              <>
-                <Field label={t.settings.provider}>
-                  <select
-                    value={settings.ai.apiType}
-                    onChange={(event) =>
-                      setSettings({
-                        ...settings,
-                        ai: { ...settings.ai, apiType: event.target.value as ProviderType },
-                      })
-                    }
-                  >
-                    <option value="openai-compatible">{t.settings.openAiCompatible}</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="google">Google</option>
-                  </select>
-                </Field>
-                <Field label={t.settings.apiBaseUrl}>
-                  <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
-                </Field>
-                <Field label={t.settings.apiKey}>
-                  <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
-                </Field>
-                <Field label={t.settings.model}>
-                  <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
-                </Field>
-              </>
+              operations ? (
+                <div className="ob-settings-note">
+                  <strong>{t.settings.managedModel}</strong>
+                  <p>{t.settings.managedModelHelp}</p>
+                </div>
+              ) : (
+                <>
+                  <Field label={t.settings.provider}>
+                    <select
+                      value={settings.ai.apiType}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          ai: { ...settings.ai, apiType: event.target.value as ProviderType },
+                        })
+                      }
+                    >
+                      <option value="openai-compatible">{t.settings.openAiCompatible}</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
+                      <option value="google">Google</option>
+                    </select>
+                  </Field>
+                  <Field label={t.settings.apiBaseUrl}>
+                    <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
+                  </Field>
+                  <Field label={t.settings.apiKey}>
+                    <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
+                  </Field>
+                  <Field label={t.settings.model}>
+                    <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
+                  </Field>
+                </>
+              )
             ) : null}
             {tab === "research" ? (
               <>

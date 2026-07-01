@@ -213,6 +213,117 @@ svg {
   min-height: 100vh;
 }
 
+/* ---------- Backend auth ---------- */
+
+.ob-auth-page {
+  min-height: 100dvh;
+  background: var(--ob-bg);
+}
+
+.ob-auth-page {
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.ob-auth-card {
+  display: grid;
+  gap: 16px;
+  width: min(420px, 100%);
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius-lg);
+  padding: 28px;
+  background: var(--ob-surface);
+  box-shadow: var(--ob-shadow-md);
+}
+
+.ob-auth-card header {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+
+.ob-auth-card small {
+  color: var(--ob-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ob-auth-card h1 {
+  margin: 0;
+  color: var(--ob-text);
+  font-size: 1.55rem;
+  letter-spacing: 0;
+}
+
+.ob-auth-card p {
+  margin: 0;
+  color: var(--ob-text-secondary);
+  line-height: 1.55;
+}
+
+.ob-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 8px;
+}
+
+.ob-code-row button {
+  justify-content: center;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.ob-oauth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  border: 1px solid var(--ob-border-strong);
+  border-radius: var(--ob-radius);
+  background: var(--ob-surface);
+  color: var(--ob-text);
+  font-weight: 600;
+  box-shadow: var(--ob-shadow-sm);
+}
+
+.ob-oauth-button:hover {
+  background: var(--ob-hover);
+}
+
+.ob-auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--ob-text-muted);
+  font-size: 0.78rem;
+}
+
+.ob-auth-divider::before,
+.ob-auth-divider::after {
+  height: 1px;
+  background: var(--ob-border);
+  content: "";
+}
+
+.ob-auth-error {
+  margin: 0;
+  border-radius: var(--ob-radius-sm);
+  padding: 10px 12px;
+  background: var(--ob-danger-soft);
+  color: var(--ob-danger);
+  font-size: 0.86rem;
+}
+
+.ob-auth-hint {
+  color: var(--ob-text-muted);
+  font-size: 0.78rem;
+}
+
 .ob-sidebar,
 .ob-chat,
 .ob-workspace-shell {
@@ -515,7 +626,7 @@ svg {
 }
 
 .ob-sidebar-footer {
-  justify-content:flex-start;
+  justify-content: flex-start;
   gap: 8px;
   border-top: 1px solid var(--ob-border);
   border-bottom: 0;
@@ -525,6 +636,121 @@ svg {
   width: 34px;
   height: 34px;
   padding: 0;
+}
+
+.ob-account-menu {
+  position: relative;
+}
+
+.ob-user-avatar-button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--ob-border-strong);
+  border-radius: 50%;
+  background: var(--ob-primary);
+  color: var(--ob-primary-contrast);
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: var(--ob-shadow-sm);
+}
+
+.ob-user-avatar-button:hover {
+  background: var(--ob-primary-hover);
+}
+
+.ob-account-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  display: grid;
+  width: 238px;
+  gap: 8px;
+  border: 1px solid var(--ob-border-strong);
+  border-radius: var(--ob-radius);
+  padding: 10px;
+  background: var(--ob-surface);
+  color: var(--ob-text);
+  box-shadow: var(--ob-shadow-lg);
+}
+
+.ob-account-popover.is-collapsed {
+  left: calc(100% + 8px);
+  bottom: 0;
+}
+
+.ob-account-popover-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ob-border);
+}
+
+.ob-account-popover-header span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ob-account-popover-header strong,
+.ob-account-popover-header small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ob-account-popover-header strong {
+  color: var(--ob-text);
+  font-size: 0.9rem;
+}
+
+.ob-account-popover-header small {
+  color: var(--ob-text-muted);
+  font-size: 0.74rem;
+  text-transform: none;
+}
+
+.ob-user-avatar-large {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ob-primary);
+  color: var(--ob-primary-contrast);
+  font-weight: 700;
+}
+
+.ob-account-credit-row {
+  border-radius: var(--ob-radius-sm);
+  padding: 8px 10px;
+  background: var(--ob-surface-sunken);
+  color: var(--ob-text-secondary);
+  font-size: 0.84rem;
+}
+
+.ob-account-action {
+  display: flex;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: var(--ob-radius-sm);
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--ob-text);
+  font-size: 0.86rem;
+}
+
+.ob-account-action:hover {
+  background: var(--ob-hover-strong);
+}
+
+.ob-account-action.is-danger {
+  color: var(--ob-danger);
 }
 
 .ob-sidebar-title-row {
@@ -1809,6 +2035,27 @@ svg {
   gap: 16px;
   overflow: auto;
   padding: 20px;
+}
+
+.ob-settings-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 14px;
+  background: var(--ob-surface-sunken);
+}
+
+.ob-settings-note strong {
+  color: var(--ob-text);
+  font-size: 0.92rem;
+}
+
+.ob-settings-note p {
+  margin: 0;
+  color: var(--ob-text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.55;
 }
 
 .ob-field {

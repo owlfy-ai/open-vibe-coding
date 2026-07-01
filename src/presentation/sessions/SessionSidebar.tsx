@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConversationId } from "@/domain/conversation";
 import { useApplication } from "../runtime";
+import { useBackendAccount } from "../auth/BackendAuthGate";
 import { useT } from "../i18n";
 import { Icon } from "../icons";
 
@@ -58,6 +59,7 @@ export function SessionSidebar({
           <button className="ob-icon-button" onClick={onOpenSettings} aria-label={t.sidebar.settings}>
             <Icon name="settings" />
           </button>
+          <AccountMenu collapsed />
         </div>
       </aside>
     );
@@ -153,9 +155,91 @@ export function SessionSidebar({
         <button className="ob-secondary-button" onClick={onOpenSettings} aria-label={t.sidebar.settings} title={t.sidebar.settings}>
           <Icon name="settings" />
         </button>
+        <AccountMenu />
       </footer>
     </aside>
   );
+}
+
+function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
+  const account = useBackendAccount();
+  const t = useT();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  if (!account) return null;
+
+  const displayName = account.session.user.name || account.session.user.email || "User";
+  const credits = account.session.plan.creditsRemaining;
+  const planText = credits === undefined
+    ? account.session.plan.name
+    : `${account.session.plan.name} · ${credits} credits`;
+
+  async function openBilling() {
+    if (!account) return;
+    setBillingBusy(true);
+    try {
+      window.location.assign(await account.client.createBillingPortal());
+    } finally {
+      setBillingBusy(false);
+    }
+  }
+
+  return (
+    <div className="ob-account-menu" ref={menuRef}>
+      <button
+        className="ob-user-avatar-button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={displayName}
+        title={displayName}
+      >
+        {avatarInitial(displayName)}
+      </button>
+      {open ? (
+        <div className={collapsed ? "ob-account-popover is-collapsed" : "ob-account-popover"}>
+          <div className="ob-account-popover-header">
+            <span className="ob-user-avatar-large">{avatarInitial(displayName)}</span>
+            <span>
+              <strong>{displayName}</strong>
+              <small>{account.session.user.email}</small>
+            </span>
+          </div>
+          <div className="ob-account-credit-row">
+            <span>{planText}</span>
+          </div>
+          <button className="ob-account-action" disabled={billingBusy} onClick={() => void openBilling()}>
+            {t.auth.billing}
+          </button>
+          <button className="ob-account-action is-danger" onClick={() => void account.logout()}>
+            {t.auth.logout}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function avatarInitial(value: string): string {
+  return value.trim().slice(0, 1).toUpperCase() || "U";
 }
 
 async function rename(

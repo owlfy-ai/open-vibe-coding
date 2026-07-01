@@ -11,11 +11,7 @@ import {
 } from "@/application/research";
 import type { ProjectArchivePort } from "@/application/project";
 import { PreviewCoordinator } from "@/application/preview";
-import { validateAiSettings } from "@/domain/settings";
-import {
-  AiSdkLanguageModelAdapter,
-  createAiProviderRuntime,
-} from "@/infrastructure/ai";
+import { BackendClient, BackendLanguageModelAdapter } from "@/infrastructure/backend";
 import { FetchHttpClient, type HttpClient } from "@/infrastructure/http";
 import {
   ImageResearchAdapter,
@@ -26,6 +22,7 @@ import { BrowserProjectArchive } from "@/infrastructure/project";
 import { SandpackTemplateCatalog } from "@/infrastructure/preview";
 import { err, ok, type Result } from "@/shared/result";
 import type { ApplicationRuntime } from "./bootstrap";
+import { getOperationsConfig } from "./operations-config";
 
 export interface RuntimeServices {
   readonly agent: CodingAgentService;
@@ -48,32 +45,10 @@ export function createRuntimeServices(
   runtime: ApplicationRuntime,
   dependencies: RuntimeServiceDependencies = {},
 ): Result<RuntimeServices, RuntimeServiceError> {
-  const settings = runtime.session.snapshot().settings;
-  const valid = validateAiSettings(settings);
-  if (!valid.ok) {
-    return err({
-      code: "invalid-settings",
-      message: valid.error.map((issue) => issue.message).join("; "),
-    });
-  }
+  const operations = getOperationsConfig();
   try {
-    const provider = createAiProviderRuntime(
-      {
-        type: valid.value.ai.apiType,
-        baseUrl: valid.value.ai.apiBaseUrl,
-        apiKey: valid.value.ai.apiKey,
-        model: valid.value.ai.model,
-      },
-      { builtinSearch: valid.value.webSearch.engine === "builtin" },
-    );
     const model = new RetryingLanguageModel(
-      new AiSdkLanguageModelAdapter({
-        model: provider.model,
-        providerType: valid.value.ai.apiType,
-        providerOptions: provider.providerOptions,
-        providerTools: provider.providerTools,
-        providerManagedToolNames: provider.providerManagedToolNames,
-      }),
+      new BackendLanguageModelAdapter(new BackendClient(operations)),
       new TimerRetryScheduler(),
     );
     const http = dependencies.http ?? new FetchHttpClient();

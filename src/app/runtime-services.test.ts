@@ -14,14 +14,21 @@ import { PreviewCoordinator } from "@/application/preview";
 import { createRuntimeServices } from "./runtime-services";
 
 describe("runtime service assembly", () => {
-  it("refuses to construct providers from incomplete settings", () => {
+  it("constructs services without local provider settings in operations mode", () => {
     const ids = new SequentialIdGenerator();
     const clock = new FixedClock(100);
     const repository = new AppDatabaseRepository(new InMemoryKeyValueStorage());
     const session = new ApplicationSession(createEmptyDatabase(1), repository, ids, clock);
     expect(
       createRuntimeServices({ session, repository, migrated: false, ids, clock }),
-    ).toMatchObject({ ok: false, error: { code: "invalid-settings" } });
+    ).toMatchObject({
+      ok: true,
+      value: {
+        agent: expect.any(CodingAgentService),
+        conversations: expect.any(ConversationIntelligenceService),
+        preview: expect.any(PreviewCoordinator),
+      },
+    });
   });
 
   it("assembles the complete new runtime from valid settings", () => {
