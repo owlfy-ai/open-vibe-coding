@@ -30,7 +30,7 @@ const zh = {
   chat: {
     noProject: "还没开始创作",
     whatBuild: "今天想创造什么小应用？",
-    welcomeDescription: "用一句话说出想法，Open Vibe Coding 会陪孩子一步步把它变成能玩的网页应用。",
+    welcomeDescription: "用一句话说出想法，Open Vibe Coding 会陪你一步步把它变成能用的网页应用。",
     configureProvider: "配置 AI 服务后即可开始创作",
     inputPlaceholder: "说出你的点子，比如：做一个星星收集小游戏…",
     attach: "附件",
