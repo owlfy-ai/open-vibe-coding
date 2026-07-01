@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { getOperationsConfig } from "@/app/operations-config";
 import type { MemoryId } from "@/domain/memory";
 import type {
   AppSettings,
@@ -9,17 +8,18 @@ import type {
   ThemePreference,
   WebSearchEngine,
 } from "@/domain/settings";
+import { normalizeSettings } from "@/domain/settings";
 import { useApplication } from "../runtime";
 import { Icon } from "../icons";
 import { dictionary, resolveLanguage } from "../i18n";
 
 export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const { database, runtime, refreshServices } = useApplication();
-  const [settings, setSettings] = useState<AppSettings>(database.settings);
+  const [settings, setSettings] = useState<AppSettings>(() => normalizeSettings(database.settings));
   const [tab, setTab] = useState<"model" | "research" | "appearance" | "memory">("model");
   const [saving, setSaving] = useState(false);
   const t = dictionary(resolveLanguage(settings.system.language));
-  const operations = getOperationsConfig();
+  const officialModel = settings.ai.apiType === "official";
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -46,40 +46,43 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
           </nav>
           <section className="ob-settings-content">
             {tab === "model" ? (
-              operations ? (
-                <div className="ob-settings-note">
-                  <strong>{t.settings.managedModel}</strong>
-                  <p>{t.settings.managedModelHelp}</p>
-                </div>
-              ) : (
-                <>
-                  <Field label={t.settings.provider}>
-                    <select
-                      value={settings.ai.apiType}
-                      onChange={(event) =>
-                        setSettings({
-                          ...settings,
-                          ai: { ...settings.ai, apiType: event.target.value as ProviderType },
-                        })
-                      }
-                    >
-                      <option value="openai-compatible">{t.settings.openAiCompatible}</option>
-                      <option value="openai">OpenAI</option>
-                      <option value="anthropic">Anthropic</option>
-                      <option value="google">Google</option>
-                    </select>
-                  </Field>
-                  <Field label={t.settings.apiBaseUrl}>
-                    <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
-                  </Field>
-                  <Field label={t.settings.apiKey}>
-                    <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
-                  </Field>
-                  <Field label={t.settings.model}>
-                    <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
-                  </Field>
-                </>
-              )
+              <>
+                <Field label={t.settings.provider}>
+                  <select
+                    value={settings.ai.apiType}
+                    onChange={(event) =>
+                      setSettings({
+                        ...settings,
+                        ai: { ...settings.ai, apiType: event.target.value as ProviderType },
+                      })
+                    }
+                  >
+                    <option value="official">{t.settings.officialModel}</option>
+                    <option value="openai-compatible">{t.settings.openAiCompatible}</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="google">Google</option>
+                  </select>
+                </Field>
+                {officialModel ? (
+                  <div className="ob-settings-note">
+                    <strong>{t.settings.officialModel}</strong>
+                    <p>{t.settings.officialModelHelp}</p>
+                  </div>
+                ) : (
+                  <>
+                    <Field label={t.settings.apiBaseUrl}>
+                      <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
+                    </Field>
+                    <Field label={t.settings.apiKey}>
+                      <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
+                    </Field>
+                    <Field label={t.settings.model}>
+                      <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
+                    </Field>
+                  </>
+                )}
+              </>
             ) : null}
             {tab === "research" ? (
               <>

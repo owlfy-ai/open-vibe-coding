@@ -25,8 +25,16 @@ describe("settings domain", () => {
     });
   });
 
-  it("returns all validation failures instead of a single boolean", () => {
+  it("accepts the official model option without third-party credentials", () => {
     const result = validateAiSettings(DEFAULT_SETTINGS);
+    expect(result).toMatchObject({ ok: true });
+  });
+
+  it("returns all third-party validation failures instead of a single boolean", () => {
+    const result = validateAiSettings({
+      ...DEFAULT_SETTINGS,
+      ai: { ...DEFAULT_SETTINGS.ai, apiType: "openai", model: "" },
+    });
     expect(result).toMatchObject({
       ok: false,
       error: [

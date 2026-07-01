@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useUser } from "@clerk/clerk-react";
 import type { ConversationId } from "@/domain/conversation";
 import { useApplication } from "../runtime";
 import { useBackendAccount } from "../auth/BackendAuthGate";
@@ -56,10 +57,10 @@ export function SessionSidebar({
           </button>
         </div>
         <div className="ob-sidebar-collapsed-bottom">
+          <AccountMenu collapsed />
           <button className="ob-icon-button" onClick={onOpenSettings} aria-label={t.sidebar.settings}>
             <Icon name="settings" />
           </button>
-          <AccountMenu collapsed />
         </div>
       </aside>
     );
@@ -152,10 +153,10 @@ export function SessionSidebar({
         ))}
       </nav>
       <footer className="ob-sidebar-footer">
+        <AccountMenu />
         <button className="ob-secondary-button" onClick={onOpenSettings} aria-label={t.sidebar.settings} title={t.sidebar.settings}>
           <Icon name="settings" />
         </button>
-        <AccountMenu />
       </footer>
     </aside>
   );
@@ -163,6 +164,7 @@ export function SessionSidebar({
 
 function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
   const account = useBackendAccount();
+  const { user } = useUser();
   const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -189,6 +191,7 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
   if (!account) return null;
 
   const displayName = account.session.user.name || account.session.user.email || "User";
+  const avatarUrl = user?.imageUrl;
   const credits = account.session.plan.creditsRemaining;
   const planText = credits === undefined
     ? account.session.plan.name
@@ -212,12 +215,14 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
         aria-label={displayName}
         title={displayName}
       >
-        {avatarInitial(displayName)}
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : avatarInitial(displayName)}
       </button>
       {open ? (
         <div className={collapsed ? "ob-account-popover is-collapsed" : "ob-account-popover"}>
           <div className="ob-account-popover-header">
-            <span className="ob-user-avatar-large">{avatarInitial(displayName)}</span>
+            <span className="ob-user-avatar-large">
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : avatarInitial(displayName)}
+            </span>
             <span>
               <strong>{displayName}</strong>
               <small>{account.session.user.email}</small>

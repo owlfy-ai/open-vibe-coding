@@ -260,7 +260,7 @@ function migrateSettings(state: UnknownRecord): AppSettings {
   const legacyUrl = optionalString(ai.apiUrl)?.replace(/\/chat\/completions$/, "");
   return {
     ai: {
-      apiType: enumOr(ai.apiType, ["openai-compatible", "openai", "anthropic", "google"], "openai-compatible"),
+      apiType: enumOr(ai.apiType, ["official", "openai-compatible", "openai", "anthropic", "google"], "official"),
       apiKey: optionalString(ai.apiKey) ?? "",
       apiBaseUrl: (optionalString(ai.apiBaseUrl) ?? legacyUrl ?? "").replace(/\/+$/, ""),
       model: optionalString(ai.model) ?? "",

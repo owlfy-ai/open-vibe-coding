@@ -1,5 +1,7 @@
 export interface OperationsConfig {
   readonly backendUrl: string;
+  readonly liteLlmBaseUrl: string;
+  readonly liteLlmModel: string;
   readonly appName: string;
   readonly clerkPublishableKey: string;
 }
@@ -10,6 +12,10 @@ export function getOperationsConfig(): OperationsConfig {
   );
   return {
     backendUrl,
+    liteLlmBaseUrl: trimTrailingSlash(
+      import.meta.env.VITE_OVC_LITELLM_BASE_URL || `${backendUrl}/litellm/v1`,
+    ),
+    liteLlmModel: import.meta.env.VITE_OVC_LITELLM_MODEL?.trim() || "Standard",
     appName: import.meta.env.VITE_OVC_APP_NAME?.trim() || "Open Vibe Coding",
     clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
   };

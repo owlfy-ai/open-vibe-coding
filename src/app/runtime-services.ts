@@ -9,9 +9,14 @@ import {
   createPackageResearchTools,
   createWebResearchTools,
 } from "@/application/research";
+import { validateAiSettings } from "@/domain/settings";
 import type { ProjectArchivePort } from "@/application/project";
 import { PreviewCoordinator } from "@/application/preview";
 import { BackendClient, BackendLanguageModelAdapter } from "@/infrastructure/backend";
+import {
+  AiSdkLanguageModelAdapter,
+  createAiProviderRuntime,
+} from "@/infrastructure/ai";
 import { FetchHttpClient, type HttpClient } from "@/infrastructure/http";
 import {
   ImageResearchAdapter,
@@ -47,8 +52,11 @@ export function createRuntimeServices(
 ): Result<RuntimeServices, RuntimeServiceError> {
   const operations = getOperationsConfig();
   try {
+    const settings = runtime.session.snapshot().settings;
+    const modelResult = createLanguageModel(settings, operations);
+    if (!modelResult.ok) return modelResult;
     const model = new RetryingLanguageModel(
-      new BackendLanguageModelAdapter(new BackendClient(operations)),
+      modelResult.value,
       new TimerRetryScheduler(),
     );
     const http = dependencies.http ?? new FetchHttpClient();
@@ -88,4 +96,42 @@ export function createRuntimeServices(
       message: error instanceof Error ? error.message : "Failed to create AI provider",
     });
   }
+}
+
+function createLanguageModel(
+  settings: ReturnType<ApplicationRuntime["session"]["snapshot"]>["settings"],
+  operations: ReturnType<typeof getOperationsConfig>,
+): Result<BackendLanguageModelAdapter | AiSdkLanguageModelAdapter, RuntimeServiceError> {
+  const normalized = validateAiSettings(settings);
+  if (!normalized.ok) {
+    return err({
+      code: "invalid-settings",
+      message: normalized.error.map((issue) => issue.message).join("; "),
+    });
+  }
+  if (normalized.value.ai.apiType === "official") {
+    return ok(new BackendLanguageModelAdapter(
+      new BackendClient(operations),
+      officialModelName(normalized.value.ai.model, operations.liteLlmModel),
+    ));
+  }
+  const provider = createAiProviderRuntime({
+    type: normalized.value.ai.apiType,
+    apiKey: normalized.value.ai.apiKey,
+    baseUrl: normalized.value.ai.apiBaseUrl,
+    model: normalized.value.ai.model,
+  });
+  return ok(new AiSdkLanguageModelAdapter({
+    model: provider.model,
+    providerType: normalized.value.ai.apiType,
+    providerOptions: provider.providerOptions,
+    providerTools: provider.providerTools,
+    providerManagedToolNames: provider.providerManagedToolNames,
+  }));
+}
+
+function officialModelName(model: string, fallback: string): string {
+  if (model === "Ultra") return "Ultra";
+  if (model === "Standard") return "Standard";
+  return fallback || "Standard";
 }

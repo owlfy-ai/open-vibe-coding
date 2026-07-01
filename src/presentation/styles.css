@@ -660,6 +660,14 @@ svg {
   background: var(--ob-primary-hover);
 }
 
+.ob-user-avatar-button img,
+.ob-user-avatar-large img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .ob-account-popover {
   position: absolute;
   left: 0;
@@ -896,6 +904,10 @@ svg {
 
 .ob-message-assistant {
   align-self: stretch;
+}
+
+.ob-message-assistant.is-error {
+  color: var(--ob-danger);
 }
 
 .ob-message img {
@@ -1158,6 +1170,34 @@ svg {
   flex: none;
   gap: 8px;
   min-width: 0;
+}
+
+.ob-model-select {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 0 8px;
+  background: var(--ob-surface-subtle);
+  color: var(--ob-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ob-model-select select {
+  border: 0;
+  min-width: 92px;
+  background: transparent;
+  color: var(--ob-text);
+  font: inherit;
+  outline: none;
+}
+
+.ob-model-select select:disabled {
+  opacity: 0.65;
 }
 
 .ob-composer-toolbar-right {

@@ -4,8 +4,8 @@ import type {
   BackendSession,
   BackendUser,
 } from "@/application/backend/auth";
-import type { JsonValue } from "@/domain/conversation";
 import type { OperationsConfig } from "@/app/operations-config";
+import type { JsonValue } from "@/domain/conversation";
 
 const SESSION_STORAGE_KEY = "ovc.backend.session";
 
@@ -19,10 +19,13 @@ interface OwlfyResponse<T> {
 interface OwlfyLoginData {
   readonly token: string;
   readonly user: OwlfyUser;
+  readonly liteLlmKey?: string;
 }
 
 interface OwlfyUserInfoData {
   readonly userInfo?: OwlfyUser;
+  readonly user?: OwlfyUser;
+  readonly liteLlmKey?: string;
 }
 
 interface OwlfyUser {
@@ -39,6 +42,8 @@ interface OwlfyUser {
   readonly vipPoints?: number;
   readonly vip_level?: number;
   readonly vipExpireAt?: string;
+  readonly apiKey?: string;
+  readonly liteLlmKey?: string;
 }
 
 interface BillingPortalResponse {
@@ -63,7 +68,8 @@ export class BackendClient implements BackendAuthPort {
       provider,
       sessionToken,
     });
-    return this.persistLoginData(data);
+    const session = this.persistLoginData(data);
+    return (await this.refresh()) ?? session;
   }
 
   async refresh(): Promise<BackendSession | null> {
@@ -71,8 +77,15 @@ export class BackendClient implements BackendAuthPort {
     if (!current) return null;
     try {
       const data = await this.getOwlfy<OwlfyUserInfoData>("/api/user/getUserInfo", current.accessToken);
-      const user = data.userInfo ? normalizeUser(data.userInfo) : current.user;
-      const session = { ...current, user, plan: normalizePlan(data.userInfo) };
+      const owlfyUser = data.userInfo ?? data.user;
+      const user = owlfyUser ? normalizeUser(owlfyUser) : current.user;
+      const session = {
+        ...current,
+        user,
+        liteLlmKey: normalizeLiteLlmKey(owlfyUser, data.liteLlmKey) ?? current.liteLlmKey,
+        vipLevel: owlfyUser ? normalizeVipLevel(owlfyUser) : current.vipLevel,
+        plan: owlfyUser ? normalizePlan(owlfyUser) : current.plan,
+      };
       writeSession(session);
       return session;
     } catch {
@@ -93,45 +106,19 @@ export class BackendClient implements BackendAuthPort {
     return `${normalizeExternalUrl(baseUrl)}?page=pricing${token ? `&token=${encodeURIComponent(token)}` : ""}`;
   }
 
-  async *streamAgent(
-    payload: JsonValue,
-    signal: AbortSignal,
-  ): AsyncIterable<JsonValue> {
-    const response = await fetch(`${this.config.backendUrl}/api/agent/stream`, {
-      method: "POST",
-      headers: this.headers(readSession()?.accessToken),
-      body: JSON.stringify(payload),
-      signal,
-    });
-    if (!response.ok) throw await toBackendError(response);
-    if (!response.body) throw new Error("Backend response did not include a stream body");
+  liteLlmBaseUrl(): string {
+    return this.config.liteLlmBaseUrl;
+  }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          yield JSON.parse(trimmed) as JsonValue;
-        }
-      }
-      buffer += decoder.decode();
-      if (buffer.trim()) yield JSON.parse(buffer.trim()) as JsonValue;
-    } finally {
-      reader.releaseLock();
-    }
+  liteLlmModel(): string {
+    return this.config.liteLlmModel;
   }
 
   private persistLoginData(data: OwlfyLoginData): BackendSession {
     const session = {
       accessToken: data.token,
+      liteLlmKey: normalizeLiteLlmKey(data.user, data.liteLlmKey),
+      vipLevel: normalizeVipLevel(data.user),
       user: normalizeUser(data.user),
       plan: normalizePlan(data.user),
     };
@@ -175,7 +162,7 @@ export class BackendClient implements BackendAuthPort {
   private headers(token?: string): Record<string, string> {
     return {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}`, "X-Token": token } : {}),
     };
   }
 }
@@ -195,6 +182,14 @@ function normalizePlan(user?: OwlfyUser): BackendPlan {
     creditsRemaining: totalPoints(user),
     renewsAt: user?.vipExpireAt,
   };
+}
+
+function normalizeLiteLlmKey(user?: OwlfyUser, fallback?: string): string | undefined {
+  return user?.liteLlmKey?.trim() || fallback?.trim() || undefined;
+}
+
+function normalizeVipLevel(user?: OwlfyUser): number {
+  return user?.vip_level ?? 0;
 }
 
 function totalPoints(user?: OwlfyUser): number {

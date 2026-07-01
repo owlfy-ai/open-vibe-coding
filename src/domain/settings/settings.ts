@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "@/shared/result";
 
-export type ProviderType = "openai-compatible" | "openai" | "anthropic" | "google";
+export type ProviderType = "official" | "openai-compatible" | "openai" | "anthropic" | "google";
 export type WebSearchEngine = "tavily" | "firecrawl" | "builtin" | "disabled";
 export type AssetSearchEngine = "pixabay" | "unsplash" | "disabled";
 export type LanguagePreference = "system" | "zh" | "en";
@@ -44,10 +44,10 @@ export interface SettingsValidationError {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   ai: {
-    apiType: "openai-compatible",
+    apiType: "official",
     apiKey: "",
     apiBaseUrl: "",
-    model: "",
+    model: "Standard",
   },
   webSearch: {
     engine: "disabled",
@@ -73,12 +73,19 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export function normalizeSettings(settings: AppSettings): AppSettings {
+  const apiKey = settings.ai.apiKey.trim();
+  const apiBaseUrl = trimTrailingSlash(settings.ai.apiBaseUrl.trim());
+  const rawModel = settings.ai.model.trim();
+  const apiType = isEmptyLegacyProvider(settings.ai.apiType, apiKey, apiBaseUrl, rawModel)
+    ? "official"
+    : settings.ai.apiType;
+  const model = apiType === "official" ? normalizeOfficialModel(rawModel) : rawModel;
   return {
     ai: {
-      apiType: settings.ai.apiType,
-      apiKey: settings.ai.apiKey.trim(),
-      apiBaseUrl: trimTrailingSlash(settings.ai.apiBaseUrl.trim()),
-      model: settings.ai.model.trim(),
+      apiType,
+      apiKey,
+      apiBaseUrl,
+      model,
     },
     webSearch: {
       engine: settings.webSearch.engine,
@@ -109,6 +116,7 @@ export function validateAiSettings(
 ): Result<AppSettings, readonly SettingsValidationError[]> {
   const normalized = normalizeSettings(settings);
   const errors: SettingsValidationError[] = [];
+  if (normalized.ai.apiType === "official") return ok(normalized);
   if (!normalized.ai.apiKey) {
     errors.push({ code: "missing-api-key", field: "ai.apiKey", message: "API key is required" });
   }
@@ -156,4 +164,17 @@ function redactSecret(secret: string): string {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function isEmptyLegacyProvider(
+  apiType: ProviderType,
+  apiKey: string,
+  apiBaseUrl: string,
+  model: string,
+): boolean {
+  return apiType === "openai-compatible" && !apiKey && !apiBaseUrl && !model;
+}
+
+function normalizeOfficialModel(model: string): string {
+  return model === "Ultra" ? "Ultra" : "Standard";
 }

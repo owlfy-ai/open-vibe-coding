@@ -41,6 +41,7 @@
     "tauri:ios:build": "tauri ios build",
     "tauri:android:dev": "tauri android dev",
     "tauri:android:build": "tauri android build",
+    "deploy": "node scripts/deploy-cloudflare.mjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -11,11 +11,13 @@ There is no browser-language split and no China/global login mode switch.
 
 ```env
 VITE_OVC_BACKEND_URL=https://api.owlfy.ai
+VITE_OVC_LITELLM_BASE_URL=https://api.owlfy.ai/litellm/v1
+VITE_OVC_LITELLM_MODEL=Standard
 VITE_OVC_APP_NAME=Open Vibe Coding
 VITE_CLERK_PUBLISHABLE_KEY=pk_live_or_test_...
 ```
 
-`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted.
+`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted. `VITE_OVC_LITELLM_BASE_URL` defaults to `<backend>/litellm/v1`, and `VITE_OVC_LITELLM_MODEL` defaults to `Standard`, matching OWLfy's default LiteLLM runtime.
 
 ## Auth Flow
 
@@ -63,7 +65,8 @@ Successful login response:
       "points": 100,
       "freePoints": 20,
       "vipPoints": 300,
-      "vip_level": 1
+      "vip_level": 1,
+      "liteLlmKey": "sk-..."
     }
   }
 }
@@ -73,31 +76,27 @@ The client refreshes user state with `GET /api/user/getUserInfo` using `Authoriz
 
 Billing opens the configured website URL from `GET /api/sysConfig/getByKey?key=website` and appends `?page=pricing&token=<token>`.
 
-## Agent Stream API
+## Model API
 
-`POST /api/agent/stream`
+The default setting is the official model. Official model calls use the same OWLfy LiteLLM OpenAI-compatible interface, not a custom agent stream endpoint, and they are billed against the signed-in account's Credits.
 
-Requires `Authorization: Bearer <token>`.
+`POST /litellm/v1/chat/completions`
 
-The request body contains:
+Requires `Authorization: Bearer <liteLlmKey>`, where `liteLlmKey` comes from the login response or `GET /api/user/getUserInfo`.
+
+The request body is the standard OpenAI Chat Completions streaming shape:
 
 ```json
 {
-  "systemPrompt": "optional system prompt",
+  "model": "Standard",
+  "stream": true,
   "messages": [],
   "tools": []
 }
 ```
 
-The response body is newline-delimited JSON. Each line must be one event:
+The LiteLLM backend owns provider routing, subscription checks, credit metering, and rate limits.
 
-```json
-{ "type": "text-delta", "delta": "Hello" }
-{ "type": "reasoning-delta", "delta": "Thinking..." }
-{ "type": "tool-call", "callId": "tool_1", "toolName": "write_file", "input": {} }
-{ "type": "finish", "reason": "tool-calls" }
-```
+Users can still switch the model provider in Settings to OpenAI-compatible, OpenAI, Anthropic, or Google. Those third-party providers use the user's own API key and base URL directly from the browser, bypass the backend model path, and do not consume backend Credits.
 
-Allowed finish reasons are `stop`, `tool-calls`, and `length`.
-
-The backend owns provider API keys, subscription checks, credit metering, and rate limits.
+When the official model provider is selected, the chat composer shows a model selector. `Standard` is available to every signed-in user and is the default. `Ultra` is only selectable for VIP users; non-VIP users remain on `Standard`.

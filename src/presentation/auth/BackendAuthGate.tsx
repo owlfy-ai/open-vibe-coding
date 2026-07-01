@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useAuth, useSession, useSignIn } from "@clerk/clerk-react";
+import { useAuth, useClerk, useSession, useSignIn } from "@clerk/clerk-react";
 import { BackendClient } from "@/infrastructure/backend";
 import type { BackendSession } from "@/application/backend";
 import type { OperationsConfig } from "@/app/operations-config";
@@ -22,6 +22,7 @@ export function BackendAuthGate({
   readonly children: ReactNode;
 }) {
   const { refreshServices } = useApplication();
+  const { signOut } = useClerk();
   const t = useT();
   const client = useMemo(() => new BackendClient(config), [config]);
   const [session, setSession] = useState<BackendSession | null>(() => client.current());
@@ -61,6 +62,7 @@ export function BackendAuthGate({
     session,
     logout: async () => {
       await client.logout();
+      await signOut();
       setSession(null);
       refreshServices();
     },
