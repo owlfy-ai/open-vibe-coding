@@ -2,6 +2,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModelPort, ModelRequest, ModelStreamEvent } from "@/application/ports/language-model";
 import { AiSdkLanguageModelAdapter } from "@/infrastructure/ai/ai-sdk-language-model";
 import type { BackendClient } from "./backend-client";
+import { BackendAuthRequiredError } from "./backend-client";
 
 export class BackendLanguageModelAdapter implements LanguageModelPort {
   constructor(
@@ -12,7 +13,7 @@ export class BackendLanguageModelAdapter implements LanguageModelPort {
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
     const session = this.backend.current();
     if (!session?.liteLlmKey) {
-      throw new Error("Owlfy LiteLLM key is missing from the current user session");
+      throw new BackendAuthRequiredError("Sign in to use the official model service");
     }
     const provider = createOpenAICompatible({
       name: "owlfy",

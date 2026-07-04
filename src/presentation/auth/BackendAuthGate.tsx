@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth, useClerk, useSession, useSignIn } from "@clerk/clerk-react";
 import { BackendClient } from "@/infrastructure/backend";
 import type { BackendSession } from "@/application/backend";
@@ -8,7 +8,9 @@ import { useT } from "../i18n";
 
 interface BackendAccountContextValue {
   readonly client: BackendClient;
-  readonly session: BackendSession;
+  readonly session: BackendSession | null;
+  readonly loading: boolean;
+  readonly requireLogin: () => Promise<BackendSession | null>;
   readonly logout: () => Promise<void>;
 }
 
@@ -23,10 +25,15 @@ export function BackendAuthGate({
 }) {
   const { refreshServices } = useApplication();
   const { signOut } = useClerk();
+  const { session: clerkSession, isLoaded: clerkSessionLoaded } = useSession();
+  const { getToken } = useAuth();
   const t = useT();
   const client = useMemo(() => new BackendClient(config), [config]);
   const [session, setSession] = useState<BackendSession | null>(() => client.current());
   const [loading, setLoading] = useState(Boolean(client.current()));
+  const [loginOpen, setLoginOpen] = useState(false);
+  const pendingLoginResolvers = useRef<Array<(session: BackendSession | null) => void>>([]);
+  const exchangedClerkSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -42,34 +49,83 @@ export function BackendAuthGate({
     };
   }, [client, refreshServices]);
 
-  if (loading) return <main className="ob-center">{t.auth.restoring}</main>;
-  if (!session) {
-    return (
-      <main className="ob-auth-page">
-        <LoginForm
-          appName={config.appName}
-          client={client}
-          onSession={(next) => {
-            setSession(next);
-            refreshServices();
-          }}
-        />
-      </main>
-    );
-  }
+  const completeLogin = useCallback((next: BackendSession) => {
+    sessionStorage.removeItem("ovc.pendingBackendLogin");
+    setSession(next);
+    setLoginOpen(false);
+    refreshServices();
+    const resolvers = pendingLoginResolvers.current.splice(0);
+    for (const resolve of resolvers) resolve(next);
+  }, [refreshServices]);
+
+  const cancelLogin = useCallback(() => {
+    sessionStorage.removeItem("ovc.pendingBackendLogin");
+    setLoginOpen(false);
+    const resolvers = pendingLoginResolvers.current.splice(0);
+    for (const resolve of resolvers) resolve(null);
+  }, []);
+
+  const requireLogin = useCallback(() => {
+    const current = client.current() ?? session;
+    if (current) return Promise.resolve(current);
+    sessionStorage.setItem("ovc.pendingBackendLogin", "1");
+    setLoginOpen(true);
+    return new Promise<BackendSession | null>((resolve) => {
+      pendingLoginResolvers.current.push(resolve);
+    });
+  }, [client, session]);
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem("ovc.pendingBackendLogin") === "1";
+    if (!pending || session || !clerkSessionLoaded || !clerkSession) return;
+    if (exchangedClerkSessionId.current === clerkSession.id) return;
+    exchangedClerkSessionId.current = clerkSession.id;
+    setLoading(true);
+    getToken()
+      .then((sessionToken) => {
+        if (!sessionToken) throw new Error(t.auth.loginFailed);
+        return client.clerkLogin("oauth_google", sessionToken);
+      })
+      .then(completeLogin)
+      .catch(() => {
+        exchangedClerkSessionId.current = null;
+        setLoginOpen(true);
+      })
+      .finally(() => setLoading(false));
+  }, [client, clerkSession, clerkSessionLoaded, completeLogin, getToken, session, t.auth.loginFailed]);
+
   const account = {
     client,
     session,
+    loading,
+    requireLogin,
     logout: async () => {
       await client.logout();
       await signOut();
+      sessionStorage.removeItem("ovc.pendingBackendLogin");
       setSession(null);
+      cancelLogin();
       refreshServices();
     },
   };
   return (
     <BackendAccountContext.Provider value={account}>
       {children}
+      {loginOpen ? (
+        <div className="ob-auth-modal" role="dialog" aria-modal="true" aria-labelledby="ob-auth-title">
+          <div className="ob-auth-backdrop" onClick={cancelLogin} />
+          <div className="ob-auth-modal-panel">
+            <button className="ob-auth-close" type="button" onClick={cancelLogin} aria-label={t.auth.cancel}>
+              ×
+            </button>
+            <LoginForm
+              appName={config.appName}
+              client={client}
+              onSession={completeLogin}
+            />
+          </div>
+        </div>
+      ) : null}
     </BackendAccountContext.Provider>
   );
 }
@@ -88,7 +144,6 @@ function LoginForm({
   readonly onSession: (session: BackendSession) => void;
 }) {
   const t = useT();
-  const { session, isLoaded: sessionLoaded } = useSession();
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
   const { getToken } = useAuth();
   const [email, setEmail] = useState("");
@@ -98,25 +153,6 @@ function LoginForm({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeSent, setCodeSent] = useState(false);
-  const exchangedSessionId = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!sessionLoaded || !session || exchangedSessionId.current === session.id) return;
-    exchangedSessionId.current = session.id;
-    setBusy(true);
-    session.getToken()
-      .then((sessionToken) => {
-        if (!sessionToken) throw new Error(t.auth.loginFailed);
-        return client.clerkLogin("oauth_google", sessionToken);
-      })
-      .then(onSession)
-      .catch((failure) => {
-        exchangedSessionId.current = null;
-        setError(failure instanceof Error ? failure.message : t.auth.loginFailed);
-      })
-      .finally(() => setBusy(false));
-  }, [client, onSession, session, sessionLoaded, t.auth.loginFailed]);
-
   async function openGoogle() {
     if (!signInLoaded || !signIn) {
       setError(t.auth.loginFailed);
@@ -191,7 +227,7 @@ function LoginForm({
     <form className="ob-auth-card" onSubmit={submit}>
       <header>
         <small>{appName}</small>
-        <h1>{t.auth.title}</h1>
+        <h1 id="ob-auth-title">{t.auth.title}</h1>
         <p>{t.auth.subtitle}</p>
       </header>
       <button type="button" className="ob-oauth-button" onClick={() => void openGoogle()}>

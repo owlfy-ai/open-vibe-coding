@@ -9,6 +9,24 @@ import type { JsonValue } from "@/domain/conversation";
 
 const SESSION_STORAGE_KEY = "ovc.backend.session";
 
+export class BackendAuthRequiredError extends Error {
+  readonly status = 401;
+  readonly code = "backend-auth-required";
+
+  constructor(message = "Sign in required") {
+    super(message);
+    this.name = "BackendAuthRequiredError";
+  }
+}
+
+export function isBackendAuthRequiredError(error: unknown): boolean {
+  if (error instanceof BackendAuthRequiredError) return true;
+  if (typeof error !== "object" || error === null) return false;
+  const status = "status" in error ? Number((error as { status: unknown }).status) : undefined;
+  const code = "code" in error ? String((error as { code: unknown }).code) : "";
+  return status === 401 || code === "backend-auth-required";
+}
+
 interface OwlfyResponse<T> {
   readonly code: number;
   readonly data?: T;
@@ -49,6 +67,38 @@ interface OwlfyUser {
 interface BillingPortalResponse {
   readonly url?: string;
   readonly website?: string;
+}
+
+export interface PublishSiteRequest {
+  readonly conversationId: string;
+  readonly title: string;
+  readonly appName: string;
+  readonly subdomain?: string;
+  readonly files: Readonly<Record<string, string>>;
+}
+
+export interface PublishedSite {
+  readonly id: number;
+  readonly conversationId: string;
+  readonly title: string;
+  readonly host: string;
+  readonly subdomain: string;
+  readonly appName: string;
+  readonly siteType: string;
+  readonly status: string;
+  readonly currentVersionId: string;
+  readonly url: string;
+}
+
+export interface CheckPublishNameResult {
+  readonly available: boolean;
+  readonly message: string;
+  readonly url: string;
+}
+
+export interface PublishSubDomainResult {
+  readonly subdomain: string;
+  readonly host: string;
 }
 
 export class BackendClient implements BackendAuthPort {
@@ -104,6 +154,32 @@ export class BackendClient implements BackendAuthPort {
     const baseUrl = typeof response === "string" ? response : response.url || response.website || this.config.backendUrl;
     const token = this.current()?.accessToken;
     return `${normalizeExternalUrl(baseUrl)}?page=pricing${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+  }
+
+  async publishSite(request: PublishSiteRequest): Promise<PublishedSite> {
+    return this.postOwlfy<PublishedSite>("/api/publish/site", {
+      conversationId: request.conversationId,
+      title: request.title,
+      appName: request.appName,
+      subdomain: request.subdomain ?? "",
+      files: request.files,
+    });
+  }
+
+  async checkPublishName(appName: string, subdomain = ""): Promise<CheckPublishNameResult> {
+    return this.postOwlfy<CheckPublishNameResult>("/api/publish/checkName", { appName, subdomain });
+  }
+
+  async setPublishSubDomain(subdomain: string): Promise<PublishSubDomainResult> {
+    return this.postOwlfy<PublishSubDomainResult>("/api/publish/subdomain", { subdomain });
+  }
+
+  async listPublishedSites(): Promise<readonly PublishedSite[]> {
+    return this.getOwlfy<readonly PublishedSite[]>("/api/publish/sites");
+  }
+
+  async cancelPublishedSite(id: number): Promise<void> {
+    await this.postOwlfy<unknown>("/api/publish/site/cancel", { id });
   }
 
   liteLlmBaseUrl(): string {
@@ -225,6 +301,10 @@ function normalizeExternalUrl(value: string): string {
 
 async function toBackendError(response: Response): Promise<Error & { status: number }> {
   const detail = await response.text();
+  if (response.status === 401) {
+    clearSession();
+    return new BackendAuthRequiredError(detail.trim() || "Sign in required") as Error & { status: number };
+  }
   const error = new Error(detail.trim() || `Backend request failed with HTTP ${response.status}`) as Error & {
     status: number;
   };

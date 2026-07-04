@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "qidea",
+  "main": "src/cloudflare-worker.js",
   "compatibility_date": "2026-07-01",
   "workers_dev": true,
   "routes": [
@@ -15,6 +16,14 @@
   ],
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
     "not_found_handling": "single-page-application"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "PUBLISHED_ASSETS",
+      "bucket_name": "qidea"
+    }
+  ]
 }

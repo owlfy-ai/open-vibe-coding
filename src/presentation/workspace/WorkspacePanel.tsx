@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
   SandpackConsole,
   SandpackLayout,
@@ -6,6 +6,7 @@ import {
   type SandpackPredefinedTemplate,
 } from "@codesandbox/sandpack-react";
 import type { PersistedConversation } from "@/infrastructure/persistence";
+import { isBackendAuthRequiredError, type PublishedSite } from "@/infrastructure/backend";
 import type { PreviewElementPromptRequest, PreviewElementSelection, PreviewRevisionState } from "@/application/preview";
 import {
   findPackageJsonError,
@@ -14,6 +15,7 @@ import {
   SandpackRuntime,
 } from "@/infrastructure/preview";
 import { useApplication } from "../runtime";
+import { useBackendAccount } from "../auth/BackendAuthGate";
 import { useResolvedTheme } from "../theme/ThemeProvider";
 import { Icon } from "../icons";
 import { useT } from "../i18n";
@@ -26,6 +28,8 @@ const CodeMirrorEditor = lazy(() =>
 );
 
 type Device = "desktop" | "tablet" | "mobile";
+type PublishStatus = "idle" | "checking" | "publishing" | "success" | "error";
+const PENDING_PUBLISH_OPEN_KEY = "ovc.pendingPublishOpen";
 type FileTreeNode = {
   readonly name: string;
   readonly path: string;
@@ -47,6 +51,7 @@ export function WorkspacePanel({
   readonly onElementPrompt?: (request: PreviewElementPromptRequest) => void;
 }) {
   const { runtime, services } = useApplication();
+  const account = useBackendAccount();
   const t = useT();
   const theme = useResolvedTheme();
   const [mode, setMode] = useState<"preview" | "code">("preview");
@@ -57,11 +62,25 @@ export function WorkspacePanel({
   const [expandedFolders, setExpandedFolders] = useState<ReadonlySet<string>>(() => new Set(["src"]));
   const [createTarget, setCreateTarget] = useState<{ readonly type: "file" | "directory"; readonly parent: string } | null>(null);
   const [createName, setCreateName] = useState("");
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishAppName, setPublishAppName] = useState(() => defaultAppName(conversation.conversation.title));
+  const [publishSubdomain, setPublishSubdomain] = useState("");
+  const [publishStatus, setPublishStatus] = useState<PublishStatus>("idle");
+  const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [publishedSites, setPublishedSites] = useState<readonly PublishedSite[]>([]);
+  const [cancelPublishBusyId, setCancelPublishBusyId] = useState<number | null>(null);
   const [previewState, setPreviewState] = useState<PreviewRevisionState | null>(null);
   const [loadedPreviewRevision, setLoadedPreviewRevision] = useState<number | null>(null);
   const previewFrameRef = useRef<HTMLDivElement>(null);
   const previewLoadingStartedAt = useRef(performance.now());
   const preview = services?.preview;
+  const vipLevel = account?.session?.vipLevel ?? 0;
+  const canUseCustomSubdomain = vipLevel >= 2;
+  const effectivePublishUrl = useMemo(
+    () => publishUrlPreview(publishAppName, publishSubdomain, canUseCustomSubdomain),
+    [canUseCustomSubdomain, publishAppName, publishSubdomain],
+  );
   const conversationId = conversation.conversation.id;
   const revision = conversation.project.revision;
   const previewStatus = previewState?.status ?? null;
@@ -146,11 +165,134 @@ export function WorkspacePanel({
     setCreateTarget(null);
     setCreateName("");
   }, []);
+  const showPublishDialog = useCallback(() => {
+    setPublishAppName((current) => current || defaultAppName(conversation.conversation.title));
+    setPublishStatus("idle");
+    setPublishMessage(null);
+    setPublishedUrl(null);
+    setPublishedSites([]);
+    setPublishOpen(true);
+  }, [conversation.conversation.title]);
+  const openPublishDialog = useCallback(async () => {
+    const session = account?.client.current() ?? account?.session;
+    if (!session) {
+      sessionStorage.setItem(PENDING_PUBLISH_OPEN_KEY, "1");
+      const next = await account?.requireLogin();
+      if (!next) {
+        sessionStorage.removeItem(PENDING_PUBLISH_OPEN_KEY);
+        return;
+      }
+    }
+    sessionStorage.removeItem(PENDING_PUBLISH_OPEN_KEY);
+    showPublishDialog();
+  }, [account, showPublishDialog]);
+  const checkPublishName = useCallback(async () => {
+    if (!account) {
+      setPublishStatus("error");
+      setPublishMessage(t.workspace.publishLoginRequired);
+      return;
+    }
+    const validationError = validatePublishRoute(publishAppName, publishSubdomain, canUseCustomSubdomain, t.workspace);
+    if (validationError) {
+      setPublishStatus("error");
+      setPublishMessage(validationError);
+      return;
+    }
+    setPublishStatus("checking");
+    setPublishMessage(null);
+    try {
+      const result = await withBackendLoginRetry(account, () =>
+        account.client.checkPublishName(publishAppName.trim(), canUseCustomSubdomain ? publishSubdomain.trim() : ""),
+      );
+      if (!result) {
+        setPublishStatus("error");
+        setPublishMessage(t.workspace.publishLoginRequired);
+        return;
+      }
+      setPublishStatus(result.available ? "success" : "error");
+      setPublishMessage(result.message || (result.available ? t.workspace.publishNameAvailable : t.workspace.publishInvalidName));
+      setPublishedUrl(null);
+    } catch (error) {
+      setPublishStatus("error");
+      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+    }
+  }, [account, canUseCustomSubdomain, publishAppName, publishSubdomain, t.workspace]);
+  const loadPublishedSites = useCallback(async () => {
+    if (!account) return [];
+    const sites = await withBackendLoginRetry(account, () => account.client.listPublishedSites());
+    const activeSites = (sites ?? []).filter((site) => site.status !== "disabled");
+    setPublishedSites(activeSites);
+    return activeSites;
+  }, [account]);
+  const publishProject = useCallback(async (event: FormEvent) => {
+    event.preventDefault();
+    if (!account) {
+      setPublishStatus("error");
+      setPublishMessage(t.workspace.publishLoginRequired);
+      return;
+    }
+    const validationError = validatePublishRoute(publishAppName, publishSubdomain, canUseCustomSubdomain, t.workspace);
+    if (validationError) {
+      setPublishStatus("error");
+      setPublishMessage(validationError);
+      return;
+    }
+    setPublishStatus("publishing");
+    setPublishMessage(null);
+    try {
+      const subdomain = canUseCustomSubdomain ? publishSubdomain.trim() : "";
+      const site = await withBackendLoginRetry(account, async () => {
+        if (subdomain) await account.client.setPublishSubDomain(subdomain);
+        return account.client.publishSite({
+          conversationId: conversation.conversation.id,
+          title: conversation.conversation.title || t.sidebar.untitled,
+          appName: publishAppName.trim(),
+          subdomain,
+          files: conversation.project.files,
+        });
+      });
+      if (!site) {
+        setPublishStatus("error");
+        setPublishMessage(t.workspace.publishLoginRequired);
+        return;
+      }
+      setPublishStatus("success");
+      setPublishedUrl(site.url);
+      setPublishMessage(t.workspace.publishSuccess);
+    } catch (error) {
+      setPublishStatus("error");
+      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+      if (error instanceof Error && error.message.includes("免费用户最多只能发布")) {
+        void loadPublishedSites();
+      }
+    }
+  }, [account, canUseCustomSubdomain, conversation.conversation.id, conversation.conversation.title, conversation.project.files, loadPublishedSites, publishAppName, publishSubdomain, t.sidebar.untitled, t.workspace]);
+  const cancelPublishedSite = useCallback(async (site: PublishedSite) => {
+    if (!account || !window.confirm(t.workspace.cancelPublishedConfirm)) return;
+    setCancelPublishBusyId(site.id);
+    try {
+      await withBackendLoginRetry(account, () => account.client.cancelPublishedSite(site.id));
+      setPublishStatus("success");
+      setPublishMessage(t.workspace.cancelPublishedSuccess);
+      await loadPublishedSites();
+    } catch (error) {
+      setPublishStatus("error");
+      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+    } finally {
+      setCancelPublishBusyId(null);
+    }
+  }, [account, loadPublishedSites, t.workspace]);
 
   useEffect(() => {
     if (conversation.project.files[activeFile as keyof typeof conversation.project.files] !== undefined) return;
     setActiveFile(firstFile(conversation));
   }, [activeFile, conversation]);
+
+  useEffect(() => {
+    if (!account?.session || sessionStorage.getItem(PENDING_PUBLISH_OPEN_KEY) !== "1") return;
+    sessionStorage.removeItem(PENDING_PUBLISH_OPEN_KEY);
+    showPublishDialog();
+  }, [account?.session, showPublishDialog]);
 
   useEffect(() => {
     setExpandedFolders((current) => {
@@ -320,6 +462,9 @@ export function WorkspacePanel({
             <button className="is-icon" onClick={() => void services.projectArchive.download({ title: conversation.conversation.title, files: conversation.project.files })} aria-label={t.workspace.download} title={t.workspace.download}>
               <Icon name="download" size={15} />
             </button>
+            <button className="is-icon" onClick={() => void openPublishDialog()} aria-label={t.workspace.publish} title={t.workspace.publish}>
+              <Icon name="globe" size={15} />
+            </button>
           </div>
         </div>
       </header>
@@ -433,12 +578,232 @@ export function WorkspacePanel({
           </SandpackRuntime>
         </SandpackErrorBoundary>
       )}
+      {publishOpen ? (
+        <PublishDialog
+          appName={publishAppName}
+          canUseCustomSubdomain={canUseCustomSubdomain}
+          vipLevel={vipLevel}
+          subdomain={publishSubdomain}
+          status={publishStatus}
+          message={publishMessage}
+          url={publishedUrl ?? effectivePublishUrl}
+          published={Boolean(publishedUrl)}
+          publishedSites={publishedSites}
+          cancelBusyId={cancelPublishBusyId}
+          labels={t.workspace}
+          onAppNameChange={setPublishAppName}
+          onSubdomainChange={setPublishSubdomain}
+          onCheckName={() => void checkPublishName()}
+          onCancelPublishedSite={(site) => void cancelPublishedSite(site)}
+          onClose={() => setPublishOpen(false)}
+          onSubmit={(event) => void publishProject(event)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PublishDialog({
+  appName,
+  subdomain,
+  canUseCustomSubdomain,
+  vipLevel,
+  status,
+  message,
+  url,
+  published,
+  publishedSites,
+  cancelBusyId,
+  labels,
+  onAppNameChange,
+  onSubdomainChange,
+  onCheckName,
+  onCancelPublishedSite,
+  onClose,
+  onSubmit,
+}: {
+  readonly appName: string;
+  readonly subdomain: string;
+  readonly canUseCustomSubdomain: boolean;
+  readonly vipLevel: number;
+  readonly status: PublishStatus;
+  readonly message: string | null;
+  readonly url: string;
+  readonly published: boolean;
+  readonly publishedSites: readonly PublishedSite[];
+  readonly cancelBusyId: number | null;
+  readonly labels: ReturnType<typeof useT>["workspace"];
+  readonly onAppNameChange: (value: string) => void;
+  readonly onSubdomainChange: (value: string) => void;
+  readonly onCheckName: () => void;
+  readonly onCancelPublishedSite: (site: PublishedSite) => void;
+  readonly onClose: () => void;
+  readonly onSubmit: (event: FormEvent) => void;
+}) {
+  const busy = status === "checking" || status === "publishing";
+  return (
+    <div className="ob-modal-backdrop" role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <form className="ob-publish-dialog" onSubmit={onSubmit}>
+        <header>
+          <div>
+            <h2>{labels.publishTitle}</h2>
+            <p>{labels.publishDescription}</p>
+          </div>
+          <button type="button" className="ob-icon-button" onClick={onClose} aria-label={labels.publishCancel}>
+            <Icon name="close" />
+          </button>
+        </header>
+        <div className="ob-publish-body">
+          <p className="ob-publish-rule">
+            {canUseCustomSubdomain ? labels.publishProRule : vipLevel > 0 ? labels.publishPlusRule : labels.publishFreeRule}
+          </p>
+          {canUseCustomSubdomain ? (
+            <label className="ob-field">
+              <span>{labels.publishSubdomain}</span>
+              <div className="ob-publish-domain-row">
+                <input
+                  value={subdomain}
+                  minLength={3}
+                  pattern="[A-Za-z0-9-]+"
+                  placeholder="my-app"
+                  onChange={(event) => onSubdomainChange(event.currentTarget.value)}
+                />
+                <strong>.qidea.ai</strong>
+              </div>
+              <small>{labels.publishSubdomainHint}</small>
+            </label>
+          ) : null}
+          <label className="ob-field">
+            <span>{labels.publishAppName}</span>
+            <div className="ob-publish-name-row">
+              <input
+                value={appName}
+                minLength={canUseCustomSubdomain ? undefined : 8}
+                placeholder={canUseCustomSubdomain ? "optional-path" : "my-awesome-app"}
+                onBlur={onCheckName}
+                onChange={(event) => onAppNameChange(event.currentTarget.value)}
+              />
+              <button
+                type="button"
+                className="ob-secondary-button"
+                disabled={busy}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onCheckName}
+              >
+                {status === "checking" ? labels.checkingPublishName : labels.checkPublishName}
+              </button>
+            </div>
+            <small>{canUseCustomSubdomain ? labels.publishProRule : labels.publishAppNameHint}</small>
+          </label>
+          <div className="ob-publish-url-preview">
+            <span>{labels.publishUrlPreview}</span>
+            <a href={url} target="_blank" rel="noreferrer">{url}</a>
+          </div>
+          {message ? <p className={`ob-publish-message is-${status}`}>{message}</p> : null}
+          {publishedSites.length > 0 ? (
+            <section className="ob-published-sites" aria-label={labels.publishedAppsTitle}>
+              <h3>{labels.publishedAppsTitle}</h3>
+              <div className="ob-published-site-list">
+                {publishedSites.map((site) => (
+                  <article className="ob-published-site" key={site.id}>
+                    <div>
+                      <strong>{site.title || site.appName || site.url}</strong>
+                      <a href={site.url} target="_blank" rel="noreferrer">{site.url}</a>
+                    </div>
+                    <button
+                      type="button"
+                      className="ob-secondary-button"
+                      disabled={cancelBusyId === site.id}
+                      onClick={() => onCancelPublishedSite(site)}
+                    >
+                      {cancelBusyId === site.id ? labels.cancelingPublishedApp : labels.cancelPublishedApp}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+        <footer>
+          {published ? (
+            <a className="ob-secondary-button" href={url} target="_blank" rel="noreferrer">
+              {labels.publishOpen}
+            </a>
+          ) : null}
+          <button className="ob-primary-button" disabled={busy} type="submit">
+            {status === "publishing" ? labels.publishing : labels.publishNow}
+          </button>
+        </footer>
+      </form>
     </div>
   );
 }
 
 function firstFile(conversation: PersistedConversation): string {
   return Object.keys(conversation.project.files).find((path) => /(?:App|index|main)\./.test(path)) ?? Object.keys(conversation.project.files)[0] ?? "package.json";
+}
+
+function defaultAppName(title: string | null): string {
+  const slug = (title || "my-qidea-app")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9._~!$&'()*+,;=:@%-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const base = slug || "my-qidea-app";
+  return base.length >= 8 ? base : `${base}-app`.padEnd(8, "0");
+}
+
+function publishUrlPreview(appName: string, subdomain: string, pro: boolean): string {
+  const normalizedApp = normalizeRouteSegment(appName);
+  if (pro) {
+    const normalizedSubdomain = subdomain.trim().toLowerCase();
+    const host = normalizedSubdomain ? `${normalizedSubdomain}.qidea.ai` : "your-name.qidea.ai";
+    return `https://${host}${normalizedApp ? `/${normalizedApp}` : "/"}`;
+  }
+  return `https://app.qidea.ai/${normalizedApp || "your-app-name"}`;
+}
+
+function validatePublishRoute(
+  appName: string,
+  subdomain: string,
+  pro: boolean,
+  labels: ReturnType<typeof useT>["workspace"],
+): string | null {
+  const normalizedApp = normalizeRouteSegment(appName);
+  if (pro) {
+    const normalizedSubdomain = subdomain.trim();
+    if (normalizedSubdomain && !/^[A-Za-z0-9](?:[A-Za-z0-9-]{1,61}[A-Za-z0-9])?$/.test(normalizedSubdomain)) {
+      return labels.publishInvalidSubdomain;
+    }
+    if (normalizedApp && !isValidRouteSegment(normalizedApp)) return labels.publishInvalidName;
+    return null;
+  }
+  if (normalizedApp.length < 8 || !isValidRouteSegment(normalizedApp)) return labels.publishInvalidName;
+  return null;
+}
+
+function normalizeRouteSegment(value: string): string {
+  return value.trim().replace(/^\/+|\/+$/g, "");
+}
+
+function isValidRouteSegment(value: string): boolean {
+  return /^[A-Za-z0-9._~!$&'()*+,;=:@%-]+$/.test(value);
+}
+
+async function withBackendLoginRetry<T>(
+  account: NonNullable<ReturnType<typeof useBackendAccount>>,
+  action: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await action();
+  } catch (error) {
+    if (!isBackendAuthRequiredError(error)) throw error;
+  }
+  const session = await account.requireLogin();
+  if (!session) return null;
+  return action();
 }
 
 function FileTree({

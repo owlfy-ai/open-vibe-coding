@@ -324,6 +324,54 @@ svg {
   font-size: 0.78rem;
 }
 
+.ob-auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.ob-auth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 18 22 / 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.ob-auth-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+}
+
+.ob-auth-modal-panel .ob-auth-card {
+  width: 100%;
+}
+
+.ob-auth-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--ob-border);
+  border-radius: 999px;
+  background: var(--ob-surface);
+  color: var(--ob-text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.ob-auth-close:hover {
+  background: var(--ob-hover);
+  color: var(--ob-text);
+}
+
 .ob-sidebar,
 .ob-chat,
 .ob-workspace-shell {
@@ -2009,6 +2057,19 @@ svg {
   animation: ob-pop-in 0.16s ease;
 }
 
+.ob-publish-dialog {
+  display: grid;
+  width: min(520px, 100%);
+  max-height: min(680px, 92vh);
+  grid-template-rows: auto 1fr auto;
+  border-radius: var(--ob-radius-xl);
+  overflow: hidden;
+  background: var(--ob-surface);
+  color: var(--ob-text);
+  box-shadow: var(--ob-shadow-lg);
+  animation: ob-pop-in 0.16s ease;
+}
+
 @keyframes ob-pop-in {
   from {
     opacity: 0;
@@ -2024,10 +2085,226 @@ svg {
   justify-content: space-between;
 }
 
+.ob-publish-dialog header,
+.ob-publish-dialog footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--ob-border);
+  padding: 14px 16px;
+}
+
+.ob-publish-dialog header {
+  justify-content: space-between;
+}
+
+.ob-publish-dialog footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--ob-border);
+  border-bottom: 0;
+}
+
 .ob-settings h2 {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+.ob-publish-dialog h2,
+.ob-publish-dialog p {
+  margin: 0;
+}
+
+.ob-publish-dialog h2 {
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.ob-publish-dialog header p {
+  margin-top: 4px;
+  color: var(--ob-text-secondary);
+  font-size: 0.86rem;
+}
+
+.ob-publish-body {
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.ob-publish-rule {
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 12px;
+  background: var(--ob-surface-sunken);
+  color: var(--ob-text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.ob-publish-domain-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.ob-publish-domain-row strong {
+  color: var(--ob-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ob-publish-name-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.ob-publish-name-row button {
+  white-space: nowrap;
+}
+
+.ob-field small {
+  color: var(--ob-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ob-publish-url-preview {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 12px;
+  background: var(--ob-primary-soft);
+}
+
+.ob-publish-url-preview span {
+  color: var(--ob-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ob-publish-url-preview a {
+  overflow-wrap: anywhere;
+  color: var(--ob-text);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.ob-publish-url-preview a:hover {
+  text-decoration: underline;
+}
+
+.ob-publish-message {
+  border-radius: var(--ob-radius);
+  padding: 10px 12px;
+  background: var(--ob-surface-sunken);
+  color: var(--ob-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.ob-publish-message.is-success {
+  background: color-mix(in srgb, var(--ob-success) 12%, transparent);
+  color: var(--ob-success);
+}
+
+.ob-publish-message.is-error {
+  background: var(--ob-danger-soft);
+  color: var(--ob-danger);
+}
+
+.ob-published-sites {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 12px;
+  background: var(--ob-surface-sunken);
+}
+
+.ob-published-sites h3 {
+  margin: 0;
+  color: var(--ob-text);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.ob-published-site-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ob-published-site {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius-sm);
+  padding: 10px;
+  background: var(--ob-surface);
+}
+
+.ob-published-site div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.ob-published-site strong {
+  overflow: hidden;
+  color: var(--ob-text);
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ob-published-site a {
+  overflow-wrap: anywhere;
+  color: var(--ob-text-secondary);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.ob-published-site a:hover {
+  text-decoration: underline;
+}
+
+.ob-published-site button {
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .ob-publish-name-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-publish-name-row button {
+    justify-self: start;
+  }
+
+  .ob-published-site {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-published-site button {
+    justify-self: start;
+  }
+}
+
+.ob-publish-dialog footer a.ob-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  text-decoration: none;
 }
 
 .ob-settings-body {

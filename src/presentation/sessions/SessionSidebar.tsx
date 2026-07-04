@@ -188,14 +188,28 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
     };
   }, [open]);
 
-  if (!account) return null;
+  if (!account?.session) {
+    return (
+      <div className="ob-account-menu" ref={menuRef}>
+        <button
+          className="ob-user-avatar-button"
+          onClick={() => void account?.requireLogin()}
+          aria-label={t.auth.signIn}
+          title={t.auth.signIn}
+        >
+          {user?.imageUrl ? <img src={user.imageUrl} alt="" /> : "U"}
+        </button>
+      </div>
+    );
+  }
 
-  const displayName = account.session.user.name || account.session.user.email || "User";
+  const session = account.session;
+  const displayName = session.user.name || session.user.email || "User";
   const avatarUrl = user?.imageUrl;
-  const credits = account.session.plan.creditsRemaining;
+  const credits = session.plan.creditsRemaining;
   const planText = credits === undefined
-    ? account.session.plan.name
-    : `${account.session.plan.name} · ${credits} credits`;
+    ? session.plan.name
+    : `${session.plan.name} · ${credits} credits`;
 
   async function openBilling() {
     if (!account) return;
@@ -225,7 +239,7 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
             </span>
             <span>
               <strong>{displayName}</strong>
-              <small>{account.session.user.email}</small>
+              <small>{session.user.email}</small>
             </span>
           </div>
           <div className="ob-account-credit-row">
