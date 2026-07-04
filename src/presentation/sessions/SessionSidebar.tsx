@@ -71,7 +71,7 @@ export function SessionSidebar({
     <aside className="ob-sidebar" ref={sidebarRef}>
       <header className="ob-sidebar-header">
         <div className="ob-sidebar-title-row">
-          <span className="ob-brand-mark"><Icon name="command" size={16} /></span>
+          <BrandLogo />
           <strong>{t.app.name}</strong>
         </div>
         <button className="ob-icon-button" onClick={() => onCollapsedChange(true)} aria-label={t.sidebar.collapseSessions}>
@@ -156,6 +156,10 @@ export function SessionSidebar({
       </footer>
     </aside>
   );
+}
+
+function BrandLogo() {
+  return <img className="ob-brand-mark" src="/logo.svg" alt="" />;
 }
 
 async function rename(
