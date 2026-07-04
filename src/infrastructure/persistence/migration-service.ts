@@ -1,4 +1,5 @@
 import type { Clock } from "@/shared/clock";
+import { normalizeSettings } from "@/domain/settings";
 import type { IdGenerator } from "@/shared/id";
 import { err, ok, type Result } from "@/shared/result";
 import {
@@ -91,5 +92,6 @@ export function parseCurrentDatabase(raw: string): Result<AppDatabase, Migration
       message: "Current database has an unsupported schema version",
     });
   }
-  return ok(value as AppDatabase);
+  const database = value as AppDatabase;
+  return ok({ ...database, settings: normalizeSettings(database.settings) });
 }
