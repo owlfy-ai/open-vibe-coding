@@ -76,36 +76,50 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
 };
 
-export function normalizeSettings(settings: AppSettings): AppSettings {
+type SettingsInput = {
+  readonly ai?: Partial<AppSettings["ai"]>;
+  readonly webSearch?: Partial<AppSettings["webSearch"]>;
+  readonly assetSearch?: Partial<AppSettings["assetSearch"]>;
+  readonly system?: Partial<AppSettings["system"]>;
+  readonly privacy?: Partial<AppSettings["privacy"]>;
+};
+
+export function normalizeSettings(settings: AppSettings | SettingsInput): AppSettings {
+  const ai = { ...DEFAULT_SETTINGS.ai, ...settings.ai };
+  const webSearch = { ...DEFAULT_SETTINGS.webSearch, ...settings.webSearch };
+  const assetSearch = { ...DEFAULT_SETTINGS.assetSearch, ...settings.assetSearch };
+  const system = { ...DEFAULT_SETTINGS.system, ...settings.system };
+  const privacy = { ...DEFAULT_SETTINGS.privacy, ...settings.privacy };
+
   return {
     ai: {
-      apiType: settings.ai.apiType,
-      apiKey: settings.ai.apiKey.trim(),
-      apiBaseUrl: trimTrailingSlash(settings.ai.apiBaseUrl.trim()),
-      model: settings.ai.model.trim(),
+      apiType: enumOr(ai.apiType, ["openai-compatible", "openai", "anthropic", "google"], DEFAULT_SETTINGS.ai.apiType),
+      apiKey: stringOrDefault(ai.apiKey, DEFAULT_SETTINGS.ai.apiKey).trim(),
+      apiBaseUrl: trimTrailingSlash(stringOrDefault(ai.apiBaseUrl, DEFAULT_SETTINGS.ai.apiBaseUrl).trim()),
+      model: stringOrDefault(ai.model, DEFAULT_SETTINGS.ai.model).trim(),
     },
     webSearch: {
-      engine: settings.webSearch.engine,
-      tavilyApiKey: settings.webSearch.tavilyApiKey,
-      tavilyApiUrl: trimTrailingSlash(settings.webSearch.tavilyApiUrl.trim()),
-      firecrawlApiKey: settings.webSearch.firecrawlApiKey,
-      firecrawlApiUrl: trimTrailingSlash(settings.webSearch.firecrawlApiUrl.trim()),
+      engine: enumOr(webSearch.engine, ["tavily", "firecrawl", "builtin", "disabled"], DEFAULT_SETTINGS.webSearch.engine),
+      tavilyApiKey: stringOrDefault(webSearch.tavilyApiKey, DEFAULT_SETTINGS.webSearch.tavilyApiKey),
+      tavilyApiUrl: trimTrailingSlash(stringOrDefault(webSearch.tavilyApiUrl, DEFAULT_SETTINGS.webSearch.tavilyApiUrl).trim()),
+      firecrawlApiKey: stringOrDefault(webSearch.firecrawlApiKey, DEFAULT_SETTINGS.webSearch.firecrawlApiKey),
+      firecrawlApiUrl: trimTrailingSlash(stringOrDefault(webSearch.firecrawlApiUrl, DEFAULT_SETTINGS.webSearch.firecrawlApiUrl).trim()),
     },
     assetSearch: {
-      engine: settings.assetSearch.engine,
-      pixabayApiKey: settings.assetSearch.pixabayApiKey,
-      pixabayApiUrl: trimTrailingSlash(settings.assetSearch.pixabayApiUrl.trim()),
-      unsplashApiKey: settings.assetSearch.unsplashApiKey,
-      unsplashApiUrl: trimTrailingSlash(settings.assetSearch.unsplashApiUrl.trim()),
-      pexelsApiKey: settings.assetSearch.pexelsApiKey,
-      pexelsApiUrl: trimTrailingSlash(settings.assetSearch.pexelsApiUrl.trim()),
+      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "pexels", "disabled"], DEFAULT_SETTINGS.assetSearch.engine),
+      pixabayApiKey: stringOrDefault(assetSearch.pixabayApiKey, DEFAULT_SETTINGS.assetSearch.pixabayApiKey),
+      pixabayApiUrl: trimTrailingSlash(stringOrDefault(assetSearch.pixabayApiUrl, DEFAULT_SETTINGS.assetSearch.pixabayApiUrl).trim()),
+      unsplashApiKey: stringOrDefault(assetSearch.unsplashApiKey, DEFAULT_SETTINGS.assetSearch.unsplashApiKey),
+      unsplashApiUrl: trimTrailingSlash(stringOrDefault(assetSearch.unsplashApiUrl, DEFAULT_SETTINGS.assetSearch.unsplashApiUrl).trim()),
+      pexelsApiKey: stringOrDefault(assetSearch.pexelsApiKey, DEFAULT_SETTINGS.assetSearch.pexelsApiKey),
+      pexelsApiUrl: trimTrailingSlash(stringOrDefault(assetSearch.pexelsApiUrl, DEFAULT_SETTINGS.assetSearch.pexelsApiUrl).trim()),
     },
     system: {
-      language: settings.system.language,
-      theme: settings.system.theme,
+      language: enumOr(system.language, ["system", "zh", "en"], DEFAULT_SETTINGS.system.language),
+      theme: enumOr(system.theme, ["system", "light", "dark"], DEFAULT_SETTINGS.system.theme),
     },
     privacy: {
-      memoryEnabled: settings.privacy.memoryEnabled,
+      memoryEnabled: privacy.memoryEnabled !== false,
     },
   };
 }
@@ -163,4 +177,12 @@ function redactSecret(secret: string): string {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function stringOrDefault(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function enumOr<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
 }

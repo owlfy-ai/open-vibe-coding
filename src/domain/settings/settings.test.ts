@@ -37,6 +37,21 @@ describe("settings domain", () => {
     });
   });
 
+  it("fills settings added after existing browser data was saved", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      assetSearch: {
+        engine: "disabled" as const,
+        pixabayApiKey: "",
+        pixabayApiUrl: "https://pixabay.com/api/",
+        unsplashApiKey: "",
+        unsplashApiUrl: "https://api.unsplash.com/",
+      },
+    };
+
+    expect(normalizeSettings(settings).assetSearch).toEqual(DEFAULT_SETTINGS.assetSearch);
+  });
+
   it("redacts every configured secret without mutating settings", () => {
     const settings = {
       ...DEFAULT_SETTINGS,
