@@ -9,10 +9,9 @@ import {
   createPackageResearchTools,
   createWebResearchTools,
 } from "@/application/research";
-import { validateAiSettings } from "@/domain/settings";
 import type { ProjectArchivePort } from "@/application/project";
 import { PreviewCoordinator } from "@/application/preview";
-import { BackendClient, BackendLanguageModelAdapter } from "@/infrastructure/backend";
+import { validateAiSettings } from "@/domain/settings";
 import {
   AiSdkLanguageModelAdapter,
   createAiProviderRuntime,
@@ -27,7 +26,6 @@ import { BrowserProjectArchive } from "@/infrastructure/project";
 import { SandpackTemplateCatalog } from "@/infrastructure/preview";
 import { err, ok, type Result } from "@/shared/result";
 import type { ApplicationRuntime } from "./bootstrap";
-import { getOperationsConfig } from "./operations-config";
 
 export interface RuntimeServices {
   readonly agent: CodingAgentService;
@@ -50,20 +48,38 @@ export function createRuntimeServices(
   runtime: ApplicationRuntime,
   dependencies: RuntimeServiceDependencies = {},
 ): Result<RuntimeServices, RuntimeServiceError> {
-  const operations = getOperationsConfig();
+  const settings = runtime.session.snapshot().settings;
+  const valid = validateAiSettings(settings);
+  if (!valid.ok) {
+    return err({
+      code: "invalid-settings",
+      message: valid.error.map((issue) => issue.message).join("; "),
+    });
+  }
   try {
-    const settings = runtime.session.snapshot().settings;
-    const modelResult = createLanguageModel(settings, operations);
-    if (!modelResult.ok) return modelResult;
+    const provider = createAiProviderRuntime(
+      {
+        type: valid.value.ai.apiType,
+        baseUrl: valid.value.ai.apiBaseUrl,
+        apiKey: valid.value.ai.apiKey,
+        model: valid.value.ai.model,
+      },
+      { builtinSearch: valid.value.webSearch.engine === "builtin" },
+    );
     const model = new RetryingLanguageModel(
-      modelResult.value,
+      new AiSdkLanguageModelAdapter({
+        model: provider.model,
+        providerType: valid.value.ai.apiType,
+        providerOptions: provider.providerOptions,
+        providerTools: provider.providerTools,
+        providerManagedToolNames: provider.providerManagedToolNames,
+      }),
       new TimerRetryScheduler(),
     );
     const http = dependencies.http ?? new FetchHttpClient();
     const preview = dependencies.preview ?? new PreviewCoordinator();
-    const backend = new BackendClient(operations);
     const web = new WebResearchAdapter(http);
-    const image = new ImageResearchAdapter(http, backend);
+    const image = new ImageResearchAdapter(http);
     const packages = new PackageResearchAdapter(http, runtime.clock);
     const settingsProvider = () => runtime.session.snapshot().settings;
     const imageTool = createImageSearchTool(image, settingsProvider);
@@ -97,42 +113,4 @@ export function createRuntimeServices(
       message: error instanceof Error ? error.message : "Failed to create AI provider",
     });
   }
-}
-
-function createLanguageModel(
-  settings: ReturnType<ApplicationRuntime["session"]["snapshot"]>["settings"],
-  operations: ReturnType<typeof getOperationsConfig>,
-): Result<BackendLanguageModelAdapter | AiSdkLanguageModelAdapter, RuntimeServiceError> {
-  const normalized = validateAiSettings(settings);
-  if (!normalized.ok) {
-    return err({
-      code: "invalid-settings",
-      message: normalized.error.map((issue) => issue.message).join("; "),
-    });
-  }
-  if (normalized.value.ai.apiType === "official") {
-    return ok(new BackendLanguageModelAdapter(
-      new BackendClient(operations),
-      officialModelName(normalized.value.ai.model, operations.liteLlmModel),
-    ));
-  }
-  const provider = createAiProviderRuntime({
-    type: normalized.value.ai.apiType,
-    apiKey: normalized.value.ai.apiKey,
-    baseUrl: normalized.value.ai.apiBaseUrl,
-    model: normalized.value.ai.model,
-  });
-  return ok(new AiSdkLanguageModelAdapter({
-    model: provider.model,
-    providerType: normalized.value.ai.apiType,
-    providerOptions: provider.providerOptions,
-    providerTools: provider.providerTools,
-    providerManagedToolNames: provider.providerManagedToolNames,
-  }));
-}
-
-function officialModelName(model: string, fallback: string): string {
-  if (model === "Ultra") return "Ultra";
-  if (model === "Standard") return "Standard";
-  return fallback || "Standard";
 }

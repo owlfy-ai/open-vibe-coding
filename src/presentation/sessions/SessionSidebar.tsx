@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useUser } from "@clerk/clerk-react";
 import type { ConversationId } from "@/domain/conversation";
 import { useApplication } from "../runtime";
-import { useBackendAccount } from "../auth/BackendAuthGate";
 import { useT } from "../i18n";
 import { Icon } from "../icons";
 
@@ -49,7 +47,6 @@ export function SessionSidebar({
     return (
       <aside className="ob-sidebar ob-sidebar-collapsed" ref={sidebarRef}>
         <div className="ob-sidebar-collapsed-top">
-          <BrandLogo />
           <button className="ob-icon-button" onClick={() => onCollapsedChange(false)} aria-label={t.sidebar.openSessions}>
             <Icon name="menu" />
           </button>
@@ -58,7 +55,6 @@ export function SessionSidebar({
           </button>
         </div>
         <div className="ob-sidebar-collapsed-bottom">
-          <AccountMenu collapsed />
           <button className="ob-icon-button" onClick={onOpenSettings} aria-label={t.sidebar.settings}>
             <Icon name="settings" />
           </button>
@@ -154,7 +150,6 @@ export function SessionSidebar({
         ))}
       </nav>
       <footer className="ob-sidebar-footer">
-        <AccountMenu />
         <button className="ob-secondary-button" onClick={onOpenSettings} aria-label={t.sidebar.settings} title={t.sidebar.settings}>
           <Icon name="settings" />
         </button>
@@ -163,107 +158,8 @@ export function SessionSidebar({
   );
 }
 
-function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
-  const account = useBackendAccount();
-  const { user } = useUser();
-  const t = useT();
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [billingBusy, setBillingBusy] = useState(false);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Node && menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  if (!account?.session) {
-    return (
-      <div className="ob-account-menu" ref={menuRef}>
-        <button
-          className="ob-user-avatar-button"
-          onClick={() => void account?.requireLogin()}
-          aria-label={t.auth.signIn}
-          title={t.auth.signIn}
-        >
-          {user?.imageUrl ? <img src={user.imageUrl} alt="" /> : "U"}
-        </button>
-      </div>
-    );
-  }
-
-  const session = account.session;
-  const displayName = session.user.name || session.user.email || "User";
-  const avatarUrl = user?.imageUrl;
-  const credits = session.plan.creditsRemaining;
-  const planText = credits === undefined
-    ? session.plan.name
-    : `${session.plan.name} · ${credits} credits`;
-
-  async function openBilling() {
-    if (!account) return;
-    setBillingBusy(true);
-    try {
-      window.location.assign(await account.client.createBillingPortal());
-    } finally {
-      setBillingBusy(false);
-    }
-  }
-
-  return (
-    <div className="ob-account-menu" ref={menuRef}>
-      <button
-        className="ob-user-avatar-button"
-        onClick={() => setOpen((current) => !current)}
-        aria-label={displayName}
-        title={displayName}
-      >
-        {avatarUrl ? <img src={avatarUrl} alt="" /> : avatarInitial(displayName)}
-      </button>
-      {open ? (
-        <div className={collapsed ? "ob-account-popover is-collapsed" : "ob-account-popover"}>
-          <div className="ob-account-popover-header">
-            <span className="ob-user-avatar-large">
-              {avatarUrl ? <img src={avatarUrl} alt="" /> : avatarInitial(displayName)}
-            </span>
-            <span>
-              <strong>{displayName}</strong>
-              <small>{session.user.email}</small>
-            </span>
-          </div>
-          <div className="ob-account-credit-row">
-            <span>{planText}</span>
-          </div>
-          <button className="ob-account-action" disabled={billingBusy} onClick={() => void openBilling()}>
-            {t.auth.billing}
-          </button>
-          <button className="ob-account-action is-danger" onClick={() => void account.logout()}>
-            {t.auth.logout}
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function BrandLogo() {
   return <img className="ob-brand-mark" src="/logo.svg" alt="" />;
-}
-
-function avatarInitial(value: string): string {
-  return value.trim().slice(0, 1).toUpperCase() || "U";
 }
 
 async function rename(

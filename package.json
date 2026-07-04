@@ -41,7 +41,6 @@
     "tauri:ios:build": "tauri ios build",
     "tauri:android:dev": "tauri android dev",
     "tauri:android:build": "tauri android build",
-    "deploy": "node scripts/deploy-cloudflare.mjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -49,7 +48,6 @@
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/openai-compatible": "^2.0.35",
-    "@clerk/clerk-react": "^5.61.3",
     "@codemirror/autocomplete": "6.20.0",
     "@codemirror/commands": "6.10.2",
     "@codemirror/lang-css": "6.3.1",

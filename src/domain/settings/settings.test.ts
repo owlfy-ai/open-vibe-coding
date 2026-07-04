@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
-  type AppSettings,
   normalizeSettings,
   redactSettings,
   validateAiSettings,
@@ -26,35 +25,8 @@ describe("settings domain", () => {
     });
   });
 
-  it("accepts the official model option without third-party credentials", () => {
+  it("returns all validation failures instead of a single boolean", () => {
     const result = validateAiSettings(DEFAULT_SETTINGS);
-    expect(result).toMatchObject({ ok: true });
-  });
-
-  it("fills newly added asset-search fields for older persisted settings", () => {
-    const legacy = {
-      ...DEFAULT_SETTINGS,
-      assetSearch: {
-        engine: "pixabay" as const,
-        pixabayApiKey: "pixabay-key",
-        pixabayApiUrl: "https://pixabay.com/api///",
-        unsplashApiKey: "",
-        unsplashApiUrl: "https://api.unsplash.com",
-      },
-    } as AppSettings;
-    expect(normalizeSettings(legacy).assetSearch).toMatchObject({
-      engine: "pixabay",
-      pixabayApiUrl: "https://pixabay.com/api",
-      pexelsApiKey: "",
-      pexelsApiUrl: "https://api.pexels.com/v1",
-    });
-  });
-
-  it("returns all third-party validation failures instead of a single boolean", () => {
-    const result = validateAiSettings({
-      ...DEFAULT_SETTINGS,
-      ai: { ...DEFAULT_SETTINGS.ai, apiType: "openai", model: "" },
-    });
     expect(result).toMatchObject({
       ok: false,
       error: [
@@ -63,6 +35,21 @@ describe("settings domain", () => {
         { code: "missing-model" },
       ],
     });
+  });
+
+  it("fills settings added after existing browser data was saved", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      assetSearch: {
+        engine: "disabled" as const,
+        pixabayApiKey: "",
+        pixabayApiUrl: "https://pixabay.com/api/",
+        unsplashApiKey: "",
+        unsplashApiUrl: "https://api.unsplash.com/",
+      },
+    };
+
+    expect(normalizeSettings(settings).assetSearch).toEqual(DEFAULT_SETTINGS.assetSearch);
   });
 
   it("redacts every configured secret without mutating settings", () => {

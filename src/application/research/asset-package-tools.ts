@@ -11,6 +11,7 @@ export function createImageSearchTool(
   research: ImageResearchPort,
   settings: () => AppSettings,
 ): AgentTool | null {
+  if (settings().assetSearch.engine === "disabled") return null;
   return {
     definition: {
       name: "image_search",

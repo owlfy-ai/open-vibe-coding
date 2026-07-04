@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "@/domain/settings";
 import { FixedClock } from "@/shared/clock";
 import { FetchHttpClient } from "@/infrastructure/http";
-import { BackendClient } from "@/infrastructure/backend";
 import { ImageResearchAdapter } from "./image-research";
 import { PackageResearchAdapter } from "./package-research";
 
@@ -95,42 +94,6 @@ describe("image and npm research adapters", () => {
       ],
     });
     expect(JSON.stringify(result)).not.toContain("pexels-secret");
-  });
-
-  it("uses official image search when no third-party key is configured", async () => {
-    const fetcher = vi.fn();
-    const backend = new BackendClient({
-      backendUrl: "https://backend.test",
-      liteLlmBaseUrl: "https://backend.test/litellm/v1",
-      liteLlmModel: "Standard",
-      appName: "Qidea",
-      clerkPublishableKey: "",
-    });
-    const officialSearch = vi.spyOn(backend, "searchOfficialImages").mockResolvedValue([
-      {
-        url: "https://cdn.test/image.jpg",
-        thumbnail: "https://cdn.test/thumb.jpg",
-        width: 1000,
-        height: 800,
-        description: "Official result",
-      },
-    ]);
-    const adapter = new ImageResearchAdapter(new FetchHttpClient(fetcher), backend);
-    const result = await adapter.search(
-      {
-        ...DEFAULT_SETTINGS.assetSearch,
-        engine: "pexels",
-        pexelsApiKey: "",
-      },
-      { query: "kids coding", limit: 4 },
-      new AbortController().signal,
-    );
-    expect(officialSearch).toHaveBeenCalledWith({ query: "kids coding", limit: 4 });
-    expect(fetcher).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      ok: true,
-      value: [{ description: "Official result" }],
-    });
   });
 
   it("caches npm responses until the TTL expires", async () => {

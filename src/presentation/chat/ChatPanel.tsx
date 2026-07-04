@@ -1,35 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { normalizeSettings } from "@/domain/settings";
-import { isBackendAuthRequiredError } from "@/infrastructure/backend";
 import type { PersistedConversation } from "@/infrastructure/persistence";
 import type { AgentRunState } from "@/domain/agent";
 import type { ToolMessage, UserContent } from "@/domain/conversation";
 import type { PreviewElementPromptRequest, PreviewElementSelection } from "@/application/preview";
 import { useApplication } from "../runtime";
-import { useBackendAccount } from "../auth/BackendAuthGate";
 import { interpolate, useT, type Translation } from "../i18n";
 import { Icon } from "../icons";
 import { ChatMessage } from "./ChatMessage";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-const PENDING_CHAT_SUBMIT_KEY = "ovc.pendingChatSubmit";
-const STANDARD_MODEL = "Standard";
-const ULTRA_MODEL = "Ultra";
 
 interface PendingAttachment {
   readonly name: string;
   readonly mediaType: string;
   readonly size: number;
   readonly data: string;
-}
-
-interface PendingChatSubmit {
-  readonly conversationId: string;
-  readonly text: string;
-  readonly attachments: readonly PendingAttachment[];
-  readonly hiddenContext?: string;
-  readonly createdAt: number;
 }
 
 export function ChatPanel({
@@ -47,8 +33,7 @@ export function ChatPanel({
   readonly onSelectedElementClear?: () => void;
   readonly onElementPromptRequestConsumed?: () => void;
 }) {
-  const { database, services, serviceError, runtime, refreshServices } = useApplication();
-  const account = useBackendAccount();
+  const { services, serviceError, runtime } = useApplication();
   const t = useT();
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<readonly PendingAttachment[]>([]);
@@ -62,10 +47,6 @@ export function ChatPanel({
   const stickToBottomRef = useRef(true);
   const processedElementPromptRef = useRef<string | null>(null);
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
-  const normalizedSettings = useMemo(() => normalizeSettings(database.settings), [database.settings]);
-  const officialModelEnabled = normalizedSettings.ai.apiType === "official";
-  const canUseUltra = (account?.session?.vipLevel ?? 0) > 0 || account?.session?.plan.status === "active";
-  const selectedOfficialModel = normalizedSettings.ai.model === ULTRA_MODEL && canUseUltra ? ULTRA_MODEL : STANDARD_MODEL;
   const messages = conversation?.conversation.messages ?? [];
   const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0) && !running);
 
@@ -108,25 +89,6 @@ export function ChatPanel({
   }, [input]);
 
   useEffect(() => {
-    if (runState.status !== "failed" || runState.error.code !== "backend-auth-required") return;
-    void account?.requireLogin();
-  }, [account, runState]);
-
-  useEffect(() => {
-    if (!conversation || !services || running || !account?.session) return;
-    const pending = readPendingChatSubmit();
-    if (!pending) return;
-    if (pending.conversationId !== conversation.conversation.id) return;
-    clearPendingChatSubmit();
-    setInput("");
-    setAttachments([]);
-    setAttachmentError(null);
-    const content = pendingContent(pending);
-    if (content.length === 0) return;
-    void runAgentContent(content, pending.hiddenContext ? { hiddenContext: pending.hiddenContext } : undefined);
-  }, [account?.session, conversation, running, services]);
-
-  useEffect(() => {
     if (!elementPromptRequest || processedElementPromptRef.current === elementPromptRequest.requestId) return;
     if (!conversation || !services || running) return;
     processedElementPromptRef.current = elementPromptRequest.requestId;
@@ -151,13 +113,10 @@ export function ChatPanel({
     if (!canSend || !conversation || !services) return;
     const text = input.trim();
     const outgoing = attachments;
-    const hiddenContext = selectedElement
-      ? formatSelectedElementHiddenContext(selectedElement)
-      : undefined;
+    setInput("");
+    setAttachments([]);
+    setAttachmentError(null);
     if (isKnownSlashCommand(text) && outgoing.length === 0) {
-      setInput("");
-      setAttachments([]);
-      setAttachmentError(null);
       await runSlashCommand(text);
       return;
     }
@@ -170,21 +129,9 @@ export function ChatPanel({
         name: attachment.name,
       })),
     ];
-    const pending = {
-      conversationId: conversation.conversation.id,
-      text,
-      attachments: outgoing,
-      hiddenContext,
-      createdAt: Date.now(),
-    };
-    if (!(await ensureBackendLoginForCurrentRequest(pending))) {
-      return;
-    }
-    clearPendingChatSubmit();
-    setInput("");
-    setAttachments([]);
-    setAttachmentError(null);
-    await runAgentContent(content, hiddenContext ? { hiddenContext } : undefined);
+    await runAgentContent(content, selectedElement
+      ? { hiddenContext: formatSelectedElementHiddenContext(selectedElement) }
+      : undefined);
     onSelectedElementClear?.();
   }
 
@@ -193,7 +140,6 @@ export function ChatPanel({
     options: { readonly hiddenContext?: string } = {},
   ) {
     if (!conversation || !services || running) return;
-    if (!(await ensureBackendLoginForCurrentRequest())) return;
     setStream("");
     await services.agent.run(conversation.conversation.id, content, {
       hiddenContext: options.hiddenContext,
@@ -207,19 +153,6 @@ export function ChatPanel({
     setStream("");
   }
 
-  async function ensureBackendLoginForCurrentRequest(pending?: PendingChatSubmit): Promise<boolean> {
-    if (!currentRequestUsesBackend()) return true;
-    if (account?.client.current() ?? account?.session) return true;
-    if (pending) writePendingChatSubmit(pending);
-    const next = await account?.requireLogin();
-    if (!next && pending) clearPendingChatSubmit();
-    return Boolean(next);
-  }
-
-  function currentRequestUsesBackend(): boolean {
-    return officialModelEnabled;
-  }
-
   async function runSlashCommand(command: string) {
     if (!conversation || !services) return;
     const id = conversation.conversation.id;
@@ -231,23 +164,9 @@ export function ChatPanel({
 
   async function compactConversation() {
     if (!conversation || !services || running || compacting) return;
-    if (!(await ensureBackendLoginForCurrentRequest())) return;
     setCompactStatus("running");
     setCompactMessage(t.chat.compacting);
-    let result: Awaited<ReturnType<typeof services.conversations.compress>>;
-    try {
-      result = await services.conversations.compress(conversation.conversation.id);
-    } catch (error) {
-      if (isBackendAuthRequiredError(error)) {
-        setCompactStatus("idle");
-        setCompactMessage(null);
-        await account?.requireLogin();
-        return;
-      }
-      setCompactStatus("error");
-      setCompactMessage(error instanceof Error ? error.message : t.chat.compactFailed);
-      return;
-    }
+    const result = await services.conversations.compress(conversation.conversation.id);
     if (result.ok) {
       setCompactStatus("success");
       setCompactMessage(t.chat.compacted);
@@ -257,27 +176,12 @@ export function ChatPanel({
       }, 2400);
       return;
     }
-    if (result.error.code === "backend-auth-required") {
-      setCompactStatus("idle");
-      setCompactMessage(null);
-      await account?.requireLogin();
-      return;
-    }
     setCompactStatus("error");
     setCompactMessage(
       result.error.code === "insufficient-history"
         ? t.chat.compactNeedHistory
         : `${t.chat.compactFailed}: ${result.error.message}`,
     );
-  }
-
-  async function changeOfficialModel(model: string) {
-    if (model === ULTRA_MODEL && !canUseUltra) return;
-    const next = await runtime.session.updateSettings({
-      ...normalizedSettings,
-      ai: { ...normalizedSettings.ai, model },
-    });
-    if (next.ok) refreshServices();
   }
 
   return (
@@ -319,21 +223,6 @@ export function ChatPanel({
       <form className="ob-composer" onSubmit={submit}>
         <div className="ob-composer-toolbar">
           <div className="ob-composer-toolbar-left">
-            {officialModelEnabled ? (
-              <label className="ob-model-select" title={t.chat.modelSelector}>
-                <span>{t.chat.modelSelector}</span>
-                <select
-                  value={selectedOfficialModel}
-                  onChange={(event) => void changeOfficialModel(event.currentTarget.value)}
-                  disabled={running}
-                >
-                  <option value={STANDARD_MODEL}>{t.chat.standardModel}</option>
-                  <option value={ULTRA_MODEL} disabled={!canUseUltra}>
-                    {t.chat.ultraModel}{canUseUltra ? "" : ` (${t.chat.vipOnly})`}
-                  </option>
-                </select>
-              </label>
-            ) : null}
             <label className="ob-attach-button" aria-label={t.chat.attach} title={t.chat.attach}>
               <Icon name="image" size={17} />
               <input
@@ -536,48 +425,4 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.addEventListener("error", () => reject(reader.error ?? new Error(`Failed to read ${file.name}`)));
     reader.readAsDataURL(file);
   });
-}
-
-function pendingContent(pending: PendingChatSubmit): UserContent[] {
-  return [
-    ...(pending.text ? [{ type: "text" as const, text: pending.text }] : []),
-    ...pending.attachments.map((attachment): UserContent => ({
-      type: "image",
-      mediaType: attachment.mediaType,
-      data: attachment.data,
-      name: attachment.name,
-    })),
-  ];
-}
-
-function readPendingChatSubmit(): PendingChatSubmit | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_CHAT_SUBMIT_KEY);
-    if (!raw) return null;
-    const pending = JSON.parse(raw) as PendingChatSubmit;
-    if (Date.now() - pending.createdAt > 30 * 60 * 1000) {
-      clearPendingChatSubmit();
-      return null;
-    }
-    return pending;
-  } catch {
-    clearPendingChatSubmit();
-    return null;
-  }
-}
-
-function writePendingChatSubmit(pending: PendingChatSubmit): void {
-  try {
-    sessionStorage.setItem(PENDING_CHAT_SUBMIT_KEY, JSON.stringify(pending));
-  } catch {
-    try {
-      sessionStorage.setItem(PENDING_CHAT_SUBMIT_KEY, JSON.stringify({ ...pending, attachments: [] }));
-    } catch {
-      // Losing the redirect draft is better than blocking the login flow.
-    }
-  }
-}
-
-function clearPendingChatSubmit(): void {
-  sessionStorage.removeItem(PENDING_CHAT_SUBMIT_KEY);
 }
