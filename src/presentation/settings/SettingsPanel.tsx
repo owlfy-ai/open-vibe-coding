@@ -95,11 +95,12 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
                 {settings.webSearch.engine === "firecrawl" ? <Field label={t.settings.firecrawlApiKey}><input type="password" value={settings.webSearch.firecrawlApiKey} onChange={(event) => setSettings({ ...settings, webSearch: { ...settings.webSearch, firecrawlApiKey: event.target.value } })} /></Field> : null}
                 <Field label={t.settings.imageSearch}>
                   <select value={settings.assetSearch.engine} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, engine: event.target.value as AssetSearchEngine } })}>
-                    <option value="disabled">{t.settings.disabled}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option>
+                    <option value="disabled">{t.settings.disabled}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option><option value="pexels">Pexels</option>
                   </select>
                 </Field>
                 {settings.assetSearch.engine === "pixabay" ? <Field label={t.settings.pixabayApiKey}><input type="password" value={settings.assetSearch.pixabayApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, pixabayApiKey: event.target.value } })} /></Field> : null}
                 {settings.assetSearch.engine === "unsplash" ? <Field label={t.settings.unsplashApiKey}><input type="password" value={settings.assetSearch.unsplashApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, unsplashApiKey: event.target.value } })} /></Field> : null}
+                {settings.assetSearch.engine === "pexels" ? <Field label={t.settings.pexelsApiKey}><input type="password" value={settings.assetSearch.pexelsApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, pexelsApiKey: event.target.value } })} /></Field> : null}
               </>
             ) : null}
             {tab === "appearance" ? (

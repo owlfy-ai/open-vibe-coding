@@ -44,6 +44,58 @@ describe("image and npm research adapters", () => {
     expect(JSON.stringify(result)).not.toContain("secret");
   });
 
+  it("searches Pexels images with authorization header", async () => {
+    const fetcher = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          photos: [
+            {
+              id: 2014422,
+              width: 3024,
+              height: 3024,
+              url: "https://www.pexels.com/photo/brown-rocks-during-golden-hour-2014422/",
+              photographer: "Joey Farina",
+              src: {
+                large2x: "https://images.pexels.com/photos/2014422/pexels-photo-2014422.jpeg?large2x",
+                tiny: "https://images.pexels.com/photos/2014422/pexels-photo-2014422.jpeg?tiny",
+              },
+              alt: "Brown Rocks During Golden Hour",
+            },
+          ],
+        }),
+      ),
+    );
+    const adapter = new ImageResearchAdapter(new FetchHttpClient(fetcher));
+    const result = await adapter.search(
+      {
+        ...DEFAULT_SETTINGS.assetSearch,
+        engine: "pexels",
+        pexelsApiKey: "pexels-secret",
+      },
+      { query: "golden rocks", orientation: "horizontal", color: "brown", limit: 3 },
+      new AbortController().signal,
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://api.pexels.com/v1/search?query=golden+rocks&per_page=3&orientation=landscape&color=brown",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "pexels-secret" }),
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      value: [
+        {
+          url: "https://images.pexels.com/photos/2014422/pexels-photo-2014422.jpeg?large2x",
+          thumbnail: "https://images.pexels.com/photos/2014422/pexels-photo-2014422.jpeg?tiny",
+          width: 3024,
+          height: 3024,
+          description: "Brown Rocks During Golden Hour",
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("pexels-secret");
+  });
+
   it("caches npm responses until the TTL expires", async () => {
     const fetcher = vi.fn(async () =>
       new Response(

@@ -277,11 +277,13 @@ function migrateSettings(state: UnknownRecord): AppSettings {
       firecrawlApiUrl: optionalString(webSearch.firecrawlApiUrl) ?? "https://api.firecrawl.dev",
     },
     assetSearch: {
-      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "disabled"], "disabled"),
+      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "pexels", "disabled"], "disabled"),
       pixabayApiKey: optionalString(assetSearch.pixabayApiKey) ?? "",
       pixabayApiUrl: optionalString(assetSearch.pixabayApiUrl) ?? "https://pixabay.com/api",
       unsplashApiKey: optionalString(assetSearch.unsplashApiKey) ?? "",
       unsplashApiUrl: optionalString(assetSearch.unsplashApiUrl) ?? "https://api.unsplash.com",
+      pexelsApiKey: optionalString(assetSearch.pexelsApiKey) ?? "",
+      pexelsApiUrl: optionalString(assetSearch.pexelsApiUrl) ?? "https://api.pexels.com/v1",
     },
     system: {
       language: enumOr(system.language, ["system", "zh", "en"], "system"),
