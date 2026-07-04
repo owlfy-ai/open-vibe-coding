@@ -161,7 +161,7 @@ function LoginForm({
     await signIn.authenticateWithRedirect({
       strategy: "oauth_google",
       redirectUrl: `${window.location.origin}/auth/clerk-callback`,
-      redirectUrlComplete: window.location.origin,
+      redirectUrlComplete: `${window.location.origin}/#studio`,
     });
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AuthenticateWithRedirectCallback, ClerkProvider } from "@clerk/clerk-react";
 import {
   ApplicationBootstrapError,
@@ -10,6 +10,7 @@ import { getOperationsConfig } from "@/app/operations-config";
 import { BackendAuthGate } from "./auth/BackendAuthGate";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { AppShell } from "./shell/AppShell";
+import { Landing } from "./landing/Landing";
 import { dictionary, resolveLanguage } from "./i18n";
 import "./styles.css";
 
@@ -18,8 +19,28 @@ type BootState =
   | { readonly status: "ready"; readonly runtime: ApplicationRuntime }
   | { readonly status: "error"; readonly error: ApplicationBootstrapError };
 
+type View = "landing" | "studio";
+
+const STUDIO_HASH = "#studio";
+const CLERK_CALLBACK_PATH = "/auth/clerk-callback";
+const STUDIO_REDIRECT_PATH = "/#studio";
+
+/**
+ * Landing is the default view; the studio is shown when the hash is `#studio`
+ * (set by "Start creating") or when on the Clerk callback path. Hash-based so a
+ * refresh survives on hosts without SPA fallback (e.g. GitHub Pages); the
+ * browser back/forward buttons drive it via `hashchange`.
+ */
+function resolveView(): View {
+  if (typeof window === "undefined") return "landing";
+  if (window.location.pathname === CLERK_CALLBACK_PATH) return "studio";
+  if (window.location.hash === STUDIO_HASH) return "studio";
+  return "landing";
+}
+
 export function AppRoot() {
   const [state, setState] = useState<BootState>({ status: "loading" });
+  const [view, setView] = useState<View>(() => resolveView());
   const t = dictionary(resolveLanguage("system"));
   const operations = getOperationsConfig();
 
@@ -40,6 +61,25 @@ export function AppRoot() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const onHashChange = () => setView(resolveView());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const enterStudio = useCallback(() => {
+    setView("studio");
+    if (window.location.hash !== STUDIO_HASH) {
+      window.location.hash = "studio";
+    }
+  }, []);
+
+  // The landing paints instantly and has no dependency on bootstrap, the
+  // runtime, or Clerk. Bootstrap continues in the background while it shows.
+  if (view === "landing") {
+    return <Landing onStart={enterStudio} />;
+  }
 
   if (state.status === "loading") {
     return <main className="ob-center"><p>{t.app.loading}</p></main>;
@@ -70,13 +110,13 @@ export function AppRoot() {
       </main>
     );
   }
-  if (window.location.pathname === "/auth/clerk-callback") {
+  if (window.location.pathname === CLERK_CALLBACK_PATH) {
     return (
       <ClerkProvider publishableKey={operations.clerkPublishableKey}>
         <main className="ob-center">{t.auth.restoring}</main>
         <AuthenticateWithRedirectCallback
-          signInFallbackRedirectUrl="/"
-          signUpFallbackRedirectUrl="/"
+          signInFallbackRedirectUrl={STUDIO_REDIRECT_PATH}
+          signUpFallbackRedirectUrl={STUDIO_REDIRECT_PATH}
         />
       </ClerkProvider>
     );
