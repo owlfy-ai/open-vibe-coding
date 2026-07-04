@@ -1,11 +1,16 @@
 const ROUTE_PREFIX = "published/routes";
 const DEFAULT_APP_HOST = "app.qidea.ai";
+const PUBLIC_R2_HOST = "c.qidea.ai";
 const ROOT_APP_NAME = "__root__";
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const host = normalizeHost(url.hostname);
+
+    if (host === PUBLIC_R2_HOST) {
+      return handlePublicR2Asset(request, env, url);
+    }
 
     if (isMainSiteHost(host)) {
       return env.ASSETS.fetch(request);
@@ -14,6 +19,21 @@ export default {
     return handlePublishedApp(request, env, host, url);
   },
 };
+
+async function handlePublicR2Asset(request, env, url) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders() });
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return textResponse("Method not allowed", 405, "r2");
+  }
+
+  const assetPath = normalizeAssetPath(url.pathname);
+  const object = await env.PUBLISHED_ASSETS.get(assetPath);
+  if (!object) return textResponse("Not found", 404, "r2");
+
+  return responseForAsset(object, assetPath, request.method, "", "r2");
+}
 
 async function handlePublishedApp(request, env, host, url) {
   if (request.method === "OPTIONS") {
@@ -136,11 +156,11 @@ function shouldFallbackToIndex(assetPath) {
   return !lastSegment.includes(".");
 }
 
-async function responseForAsset(object, assetPath, method, mountPrefix = "") {
+async function responseForAsset(object, assetPath, method, mountPrefix = "", workerMode = "publish") {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
-  headers.set("x-qidea-worker", "publish");
+  headers.set("x-qidea-worker", workerMode);
   headers.set("access-control-allow-origin", "*");
 
   if (!headers.has("content-type")) {
@@ -162,12 +182,12 @@ async function responseForAsset(object, assetPath, method, mountPrefix = "") {
   return new Response(method === "HEAD" ? null : object.body, { headers });
 }
 
-function textResponse(message, status) {
+function textResponse(message, status, workerMode = "publish") {
   return new Response(message, {
     status,
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "x-qidea-worker": "publish",
+      "x-qidea-worker": workerMode,
       ...corsHeaders(),
     },
   });
