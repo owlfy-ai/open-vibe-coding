@@ -88,13 +88,15 @@ export function SandpackBridge({
 
   useEffect(() => {
     if (!active) return;
-    const consoleLogs: PreviewConsoleEntry[] = logs.map(
-      (entry): PreviewConsoleEntry => ({
-        id: entry.id,
-        method: normalizeMethod(entry.method),
-        data: entry.data ?? [],
-      }),
-    );
+    const consoleLogs: PreviewConsoleEntry[] = logs
+      .map(
+        (entry): PreviewConsoleEntry => ({
+          id: entry.id,
+          method: normalizeMethod(entry.method),
+          data: entry.data ?? [],
+        }),
+      )
+      .filter((entry) => !isSandpackInfrastructureNoise(entry));
     if (error?.message) {
       consoleLogs.push({
         id: `sandpack-error-${revision}`,
@@ -132,4 +134,22 @@ function normalizeMethod(method: string): PreviewConsoleEntry["method"] {
     method === "debug"
     ? method
     : "log";
+}
+
+export function isSandpackInfrastructureNoise(entry: PreviewConsoleEntry): boolean {
+  if (entry.method !== "error" && entry.method !== "warn") return false;
+  const text = entry.data.map(formatConsoleValue).join(" ");
+  if (text.includes("__csb_sw") || text.includes("/cdn-cgi/rum")) return true;
+  if (text.includes("BroadcastChannel") && text.includes("bridge/worker communication")) return true;
+  return text.includes("MessagePort") && text.includes("ReadableStream could not be cloned");
+}
+
+function formatConsoleValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return `${value.name}: ${value.message}\n${value.stack ?? ""}`;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

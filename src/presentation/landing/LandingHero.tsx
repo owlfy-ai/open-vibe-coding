@@ -24,10 +24,6 @@ export function LandingHero({
             <Icon name="chevronRight" size={18} />
           </button>
         </div>
-        <p className="ob-landing-hero-note">
-          <span className="ob-landing-dot" aria-hidden="true" />
-          {copy.secondaryNote}
-        </p>
       </div>
 
       <div className="ob-landing-container">
@@ -68,22 +64,30 @@ function ProductMockup({
           <div className="ob-landing-mockup-chat">
             <div className="ob-landing-mockup-bubble is-user">{copy.userMsg}</div>
             <div className="ob-landing-mockup-bubble is-agent">{copy.agentMsg}</div>
+            <ul className="ob-landing-mockup-steps">
+              {copy.steps.map((step) => (
+                <li key={step}>
+                  <span className="ob-landing-mockup-check" aria-hidden="true">
+                    <Icon name="check" size={11} />
+                  </span>
+                  {step}
+                </li>
+              ))}
+            </ul>
             <div className="ob-landing-mockup-composer">
-              <span />
+              <span>{copy.composerPlaceholder}</span>
               <span className="ob-landing-mockup-send">
                 <Icon name="send" size={13} />
               </span>
             </div>
           </div>
           <div className="ob-landing-mockup-preview">
-            <div className="ob-landing-mockup-scene">
-              <span className="sun" />
-              <span className="score">{copy.score}</span>
-              <span className="dino" />
-              <span className="cactus c1" />
-              <span className="cactus c2" />
-              <span className="ground" />
-            </div>
+            <img
+              className="ob-landing-mockup-scene"
+              src="https://c.qidea.ai/static/images/dino.gif"
+              alt=""
+              loading="lazy"
+            />
           </div>
         </div>
       </div>

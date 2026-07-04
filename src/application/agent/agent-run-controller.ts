@@ -17,6 +17,7 @@ import type { ToolRegistry } from "../ports/agent-tool";
 import type { LanguageModelPort } from "../ports/language-model";
 
 const CONSOLE_TOOL_NAME = "get_console_logs";
+const DEFAULT_MAX_ITERATIONS = 60;
 const PROJECT_MUTATION_TOOLS = new Set([
   "init_project",
   "manage_dependencies",
@@ -45,7 +46,7 @@ export class AgentRunController {
     private readonly tools: ToolRegistry,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
-    private readonly maxIterations = 30,
+    private readonly maxIterations = DEFAULT_MAX_ITERATIONS,
   ) {}
 
   get currentState(): AgentRunState {

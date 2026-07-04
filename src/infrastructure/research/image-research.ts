@@ -22,9 +22,6 @@ export class ImageResearchAdapter implements ImageResearchPort {
     input: ImageSearchInput,
     signal: AbortSignal,
   ): Promise<Result<readonly ImageSearchResult[], ResearchError>> {
-    if (settings.engine === "disabled") {
-      return err({ code: "disabled", message: "Image search is disabled" });
-    }
     const limit = clamp(input.limit ?? 10, 1, 20);
     if (usesOfficialImageSearch(settings)) {
       if (!this.backend) return err({ code: "disabled", message: "Official image search is unavailable" });

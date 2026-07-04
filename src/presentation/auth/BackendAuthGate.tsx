@@ -101,7 +101,9 @@ export function BackendAuthGate({
     requireLogin,
     logout: async () => {
       await client.logout();
-      await signOut();
+      // After sign-out, go back to the studio (not "/", which is now the
+      // landing page) so the user stays inside the app.
+      await signOut({ redirectUrl: "/#studio" });
       sessionStorage.removeItem("ovc.pendingBackendLogin");
       setSession(null);
       cancelLogin();

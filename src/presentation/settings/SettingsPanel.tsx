@@ -106,7 +106,7 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
                 {settings.webSearch.engine === "firecrawl" ? <Field label={t.settings.firecrawlApiKey}><input type="password" value={settings.webSearch.firecrawlApiKey} onChange={(event) => setSettings({ ...settings, webSearch: { ...settings.webSearch, firecrawlApiKey: event.target.value } })} /></Field> : null}
                 <Field label={t.settings.imageSearch}>
                   <select value={settings.assetSearch.engine} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, engine: event.target.value as AssetSearchEngine } })}>
-                    <option value="official">{t.settings.officialImageSearch}</option><option value="disabled">{t.settings.disabled}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option><option value="pexels">Pexels</option>
+                    <option value="official">{t.settings.officialImageSearch}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option><option value="pexels">Pexels</option>
                   </select>
                 </Field>
                 {settings.assetSearch.engine === "official" ? <div className="ob-callout"><strong>{t.settings.officialImageSearch}</strong><p>{t.settings.officialImageSearchHelp}</p></div> : null}

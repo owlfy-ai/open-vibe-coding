@@ -2,7 +2,7 @@ import { err, ok, type Result } from "@/shared/result";
 
 export type ProviderType = "official" | "openai-compatible" | "openai" | "anthropic" | "google";
 export type WebSearchEngine = "tavily" | "firecrawl" | "builtin" | "disabled";
-export type AssetSearchEngine = "official" | "pixabay" | "unsplash" | "pexels" | "disabled";
+export type AssetSearchEngine = "official" | "pixabay" | "unsplash" | "pexels";
 export type LanguagePreference = "system" | "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -118,7 +118,7 @@ export function normalizeSettings(settings: AppSettings | SettingsInput): AppSet
       firecrawlApiUrl: trimTrailingSlash(stringOrDefault(webSearch.firecrawlApiUrl, DEFAULT_SETTINGS.webSearch.firecrawlApiUrl).trim()),
     },
     assetSearch: {
-      engine: enumOr(assetSearch.engine, ["official", "pixabay", "unsplash", "pexels", "disabled"], DEFAULT_SETTINGS.assetSearch.engine),
+      engine: enumOr(assetSearch.engine, ["official", "pixabay", "unsplash", "pexels"], DEFAULT_SETTINGS.assetSearch.engine),
       pixabayApiKey: stringOrDefault(assetSearch.pixabayApiKey, DEFAULT_SETTINGS.assetSearch.pixabayApiKey),
       pixabayApiUrl: trimTrailingSlash(stringOrDefault(assetSearch.pixabayApiUrl, DEFAULT_SETTINGS.assetSearch.pixabayApiUrl).trim()),
       unsplashApiKey: stringOrDefault(assetSearch.unsplashApiKey, DEFAULT_SETTINGS.assetSearch.unsplashApiKey),

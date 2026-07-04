@@ -33,13 +33,13 @@ export interface LandingCopy {
     readonly title: string;
     readonly subtitle: string;
     readonly primaryCta: string;
-    readonly secondaryNote: string;
     readonly mockup: {
       readonly userMsg: string;
       readonly agentMsg: string;
       readonly url: string;
       readonly published: string;
-      readonly score: string;
+      readonly steps: readonly string[];
+      readonly composerPlaceholder: string;
     };
   };
   readonly features: {
@@ -79,17 +79,23 @@ const zh: LandingCopy = {
     startCta: "开始创作",
   },
   hero: {
-    title: "一句话，就能做出自己的网页应用",
+    title: "一句话，就能上线属于自己的应用",
     subtitle:
       "Open Vibe Coding 是一个懂你的 AI 创作伙伴。你用大白话描述点子，它帮你写代码、实时预览，还能一键发布链接，分享给朋友体验。",
     primaryCta: "开始创作",
-    secondaryNote: "浏览器里直接运行 · 先体验，再登录",
     mockup: {
-      userMsg: "做一个会跳的小恐龙游戏 🦖",
-      agentMsg: "好呀！我加上了跳跃、仙人掌障碍和计分，点预览试试看。",
-      url: "open-vibe-coding.app/dino",
+      userMsg: "做一个小恐龙游戏，跳跃躲避仙人掌，下蹲躲避敌人，黑白像素风格",
+      agentMsg: "好呀！我加上了跳跃、下蹲、仙人掌障碍、翼龙敌人和计分牌。",
+      url: "app.qidea.ai/dino",
       published: "已发布",
-      score: "得分 0",
+      steps: [
+        "初始化项目",
+        "写入游戏页面与样式",
+        "实现跳跃和下蹲",
+        "加入仙人掌与翼龙",
+        "接上计分牌",
+      ],
+      composerPlaceholder: "下一步修改建议",
     },
   },
   features: {
@@ -173,17 +179,23 @@ const en: LandingCopy = {
     startCta: "Start creating",
   },
   hero: {
-    title: "Describe it. Build a web app that actually works.",
+    title: "Describe it. Launch your own app.",
     subtitle:
       "Open Vibe Coding is an AI buddy that gets you. Describe an idea in plain words — it writes the code, previews it live, and publishes a link to share with friends.",
     primaryCta: "Start creating",
-    secondaryNote: "Runs right in your browser · try it before you sign in",
     mockup: {
-      userMsg: "Make a jumping dino game 🦖",
-      agentMsg: "Sure! I added jumping, cactus obstacles and scoring. Try the preview.",
-      url: "open-vibe-coding.app/dino",
+      userMsg: "Make a dino game: jump over cacti, duck under enemies, black-and-white pixel style",
+      agentMsg: "Sure! I added jumping, ducking, cactus obstacles, pterodactyl enemies and a scoreboard.",
+      url: "app.qidea.ai/dino",
       published: "Published",
-      score: "Score 0",
+      steps: [
+        "Initialize project",
+        "Write game page and styles",
+        "Add jump and duck",
+        "Add cacti and pterodactyls",
+        "Wire up the scoreboard",
+      ],
+      composerPlaceholder: "Describe the next change",
     },
   },
   features: {
