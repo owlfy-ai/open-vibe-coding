@@ -1,5 +1,17 @@
+import { useEffect, useRef, useState } from "react";
 import type { LandingCopy } from "./landingCopy";
 import { Icon } from "../icons";
+
+const DINO_GIF = "https://c.qidea.ai/static/images/dino1.gif";
+// The single-play gif is mounted fresh when the preview phase begins, so it
+// starts from the first frame, plays once and stops. Tune PREVIEW_PLAY_MS to
+// roughly the gif's own duration; afterwards it lingers (on its last frame)
+// for PREVIEW_LINGER_MS before the whole loop resets to the prompt.
+const PREVIEW_PLAY_MS = 5200;
+const PREVIEW_LINGER_MS = 3000;
+// Cross-fade when the loop resets: the body fades out, then the next loop's
+// prompt fades back in.
+const FADE_MS = 450;
 
 export function LandingHero({
   copy,
@@ -34,14 +46,25 @@ export function LandingHero({
 }
 
 /**
- * A static, pure-CSS/JSX stand-in for the studio (chat + live preview).
- * Decorative only — no Sandpack, no runtime cost. Marked aria-hidden.
+ * A static, pure-CSS/JSX stand-in for the studio (chat + live preview). It
+ * loops a short demo: user prompt → typed agent reply → streaming tool calls
+ * → live gif preview, then repeats. Decorative only — no Sandpack, no runtime.
  */
 function ProductMockup({
   copy,
 }: {
   readonly copy: LandingCopy["hero"]["mockup"];
 }) {
+  const { phase, typedText, visibleSteps } = useMockupTimeline(
+    copy.agentMsg,
+    copy.steps.length,
+  );
+  const showAgent = phase !== "prompt";
+  // Resolve a gif URL that restarts the single-play gif on every preview entry.
+  // Prefers a fresh object URL minted from a cached blob (no re-download each
+  // loop); falls back to a cache-busting direct URL if CORS blocks the fetch.
+  const gifUrl = useGifUrl(phase);
+
   return (
     <div className="ob-landing-mockup" aria-hidden="true">
       <div className="ob-landing-mockup-frame">
@@ -55,17 +78,20 @@ function ProductMockup({
             <Icon name="globe" size={13} />
             {copy.url}
           </span>
-          <span className="ob-landing-mockup-published">
-            <Icon name="check" size={12} />
-            {copy.published}
-          </span>
         </div>
-        <div className="ob-landing-mockup-body">
+        <div className={`ob-landing-mockup-body ${phase === "fading" ? "is-fading" : ""}`}>
           <div className="ob-landing-mockup-chat">
             <div className="ob-landing-mockup-bubble is-user">{copy.userMsg}</div>
-            <div className="ob-landing-mockup-bubble is-agent">{copy.agentMsg}</div>
+            {showAgent ? (
+              <div className="ob-landing-mockup-bubble is-agent">
+                {typedText}
+                {phase === "typing" ? (
+                  <span className="ob-landing-mockup-caret" aria-hidden="true" />
+                ) : null}
+              </div>
+            ) : null}
             <ul className="ob-landing-mockup-steps">
-              {copy.steps.map((step) => (
+              {copy.steps.slice(0, visibleSteps).map((step) => (
                 <li key={step}>
                   <span className="ob-landing-mockup-check" aria-hidden="true">
                     <Icon name="check" size={11} />
@@ -82,15 +108,173 @@ function ProductMockup({
             </div>
           </div>
           <div className="ob-landing-mockup-preview">
-            <img
-              className="ob-landing-mockup-scene"
-              src="https://c.qidea.ai/static/images/dino.gif"
-              alt=""
-              loading="lazy"
-            />
+            <PreviewPane phase={phase} codingLabel={copy.coding} gifUrl={gifUrl} />
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function PreviewPane({
+  phase,
+  codingLabel,
+  gifUrl,
+}: {
+  readonly phase: MockupPhase;
+  readonly codingLabel: string;
+  readonly gifUrl: string;
+}) {
+  // Show the gif only during the preview phase. At every other moment — from
+  // the very first prompt through typing and tool calls — the "Coding…"
+  // loader is shown, since the agent is working the whole time.
+  if (phase === "preview" || phase === "fading") {
+    return (
+      <img
+        className="ob-landing-mockup-scene"
+        src={gifUrl}
+        alt=""
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="ob-landing-mockup-coding">
+      <span className="ob-landing-mockup-spinner" aria-hidden="true" />
+      <span className="ob-landing-mockup-coding-label">{codingLabel}</span>
+    </div>
+  );
+}
+
+type MockupPhase = "prompt" | "typing" | "tools" | "preview" | "fading";
+
+/**
+ * Drives the mockup loop. Phases advance on timers; typing and step reveal
+ * progress one unit per tick. Under `prefers-reduced-motion` the loop is
+ * skipped and the finished state is shown statically.
+ */
+function useMockupTimeline(agentMsg: string, stepCount: number) {
+  const reduceMotion = usePrefersReducedMotion();
+  const [phase, setPhase] = useState<MockupPhase>("prompt");
+  const [typed, setTyped] = useState(0);
+  const [visibleSteps, setVisibleSteps] = useState(0);
+
+  useEffect(() => {
+    if (!reduceMotion) return;
+    setPhase("preview");
+    setTyped(agentMsg.length);
+    setVisibleSteps(stepCount);
+  }, [reduceMotion, agentMsg.length, stepCount]);
+
+  useEffect(() => {
+    if (reduceMotion || phase !== "prompt") return;
+    const t = window.setTimeout(() => setPhase("typing"), 1100);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase]);
+
+  useEffect(() => {
+    if (reduceMotion || phase !== "typing") return;
+    if (typed >= agentMsg.length) {
+      const t = window.setTimeout(() => setPhase("tools"), 450);
+      return () => window.clearTimeout(t);
+    }
+    const t = window.setTimeout(() => setTyped((c) => c + 1), 22);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase, typed, agentMsg.length]);
+
+  useEffect(() => {
+    if (reduceMotion || phase !== "tools") return;
+    if (visibleSteps >= stepCount) {
+      const t = window.setTimeout(() => setPhase("preview"), 750);
+      return () => window.clearTimeout(t);
+    }
+    const t = window.setTimeout(() => setVisibleSteps((s) => s + 1), 680);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase, visibleSteps, stepCount]);
+
+  useEffect(() => {
+    if (reduceMotion || phase !== "preview") return;
+    const t = window.setTimeout(() => setPhase("fading"), PREVIEW_PLAY_MS + PREVIEW_LINGER_MS);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase]);
+
+  // Fade the body out, then reset the loop and let the next prompt fade in.
+  useEffect(() => {
+    if (reduceMotion || phase !== "fading") return;
+    const t = window.setTimeout(() => {
+      setTyped(0);
+      setVisibleSteps(0);
+      setPhase("prompt");
+    }, FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase]);
+
+  return {
+    phase,
+    typedText: agentMsg.slice(0, typed),
+    visibleSteps,
+  };
+}
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+function useGifUrl(phase: MockupPhase) {
+  const blobRef = useRef<Blob | null>(null);
+  const objUrlRef = useRef<string | null>(null);
+  const [url, setUrl] = useState<string>(DINO_GIF);
+
+  // Download the gif once and cache it as a blob.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(DINO_GIF)
+      .then((r) => r.blob())
+      .then((blob) => {
+        if (cancelled) return;
+        blobRef.current = blob;
+      })
+      .catch(() => {
+        /* CORS or network error → keep falling back to the direct URL */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // On each preview entry, mint a fresh object URL from the cached blob. A new
+  // URL makes the browser reload the gif (so the single-play gif restarts from
+  // frame 0) without re-downloading the ~1MB payload every loop.
+  useEffect(() => {
+    if (phase === "preview") {
+      const blob = blobRef.current;
+      if (blob) {
+        const objUrl = URL.createObjectURL(blob);
+        objUrlRef.current = objUrl;
+        setUrl(objUrl);
+      } else {
+        // Blob not ready yet or fetch was blocked: cache-bust the direct URL.
+        setUrl(`${DINO_GIF}?r=${Date.now()}`);
+      }
+    }
+    // Keep the URL through the fading phase (gif stays visible while fading
+    // out); release it once the loop resets to prompt.
+    if (phase === "prompt" && objUrlRef.current) {
+      URL.revokeObjectURL(objUrlRef.current);
+      objUrlRef.current = null;
+    }
+  }, [phase]);
+
+  return url;
 }

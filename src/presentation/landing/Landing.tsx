@@ -38,7 +38,7 @@ export function Landing({ onStart }: { readonly onStart: () => void }) {
 
   return (
     <div className="ob-landing">
-      <LandingNav copy={copy.nav} onStart={onStart} />
+      <LandingNav copy={copy.nav} />
       <LandingHero copy={copy.hero} onStart={onStart} />
       <LandingFeatures copy={copy.features} />
       <LandingHowItWorks steps={copy.steps} />

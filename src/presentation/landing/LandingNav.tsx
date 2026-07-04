@@ -5,10 +5,8 @@ const GITHUB_URL = "https://github.com/owlfy-ai/open-vibe-coding";
 
 export function LandingNav({
   copy,
-  onStart,
 }: {
   readonly copy: LandingCopy["nav"];
-  readonly onStart: () => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
 
@@ -47,9 +45,6 @@ export function LandingNav({
           >
             <GithubMark />
           </a>
-          <button className="ob-landing-nav-cta" type="button" onClick={onStart}>
-            {copy.startCta}
-          </button>
         </div>
       </div>
     </header>

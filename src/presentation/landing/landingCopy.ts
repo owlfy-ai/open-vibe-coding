@@ -27,7 +27,6 @@ export interface LandingCopy {
     readonly features: string;
     readonly howItWorks: string;
     readonly gallery: string;
-    readonly startCta: string;
   };
   readonly hero: {
     readonly title: string;
@@ -37,9 +36,9 @@ export interface LandingCopy {
       readonly userMsg: string;
       readonly agentMsg: string;
       readonly url: string;
-      readonly published: string;
       readonly steps: readonly string[];
       readonly composerPlaceholder: string;
+      readonly coding: string;
     };
   };
   readonly features: {
@@ -76,7 +75,6 @@ const zh: LandingCopy = {
     features: "功能",
     howItWorks: "怎么用",
     gallery: "作品",
-    startCta: "开始创作",
   },
   hero: {
     title: "一句话，就能上线属于自己的应用",
@@ -87,7 +85,6 @@ const zh: LandingCopy = {
       userMsg: "做一个小恐龙游戏，跳跃躲避仙人掌，下蹲躲避敌人，黑白像素风格",
       agentMsg: "好呀！我加上了跳跃、下蹲、仙人掌障碍、翼龙敌人和计分牌。",
       url: "app.qidea.ai/dino",
-      published: "已发布",
       steps: [
         "初始化项目",
         "写入游戏页面与样式",
@@ -96,6 +93,7 @@ const zh: LandingCopy = {
         "接上计分牌",
       ],
       composerPlaceholder: "下一步修改建议",
+      coding: "编码中…",
     },
   },
   features: {
@@ -176,7 +174,6 @@ const en: LandingCopy = {
     features: "Features",
     howItWorks: "How it works",
     gallery: "Gallery",
-    startCta: "Start creating",
   },
   hero: {
     title: "Describe it. Launch your own app.",
@@ -187,7 +184,6 @@ const en: LandingCopy = {
       userMsg: "Make a dino game: jump over cacti, duck under enemies, black-and-white pixel style",
       agentMsg: "Sure! I added jumping, ducking, cactus obstacles, pterodactyl enemies and a scoreboard.",
       url: "app.qidea.ai/dino",
-      published: "Published",
       steps: [
         "Initialize project",
         "Write game page and styles",
@@ -196,6 +192,7 @@ const en: LandingCopy = {
         "Wire up the scoreboard",
       ],
       composerPlaceholder: "Describe the next change",
+      coding: "Coding…",
     },
   },
   features: {

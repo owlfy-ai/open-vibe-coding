@@ -205,29 +205,6 @@ body.ob-landing-active #root {
   color: var(--ob-text);
 }
 
-.ob-landing-nav-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 16px;
-  border: 0;
-  border-radius: var(--ob-radius);
-  background: var(--ob-primary);
-  color: var(--ob-primary-contrast);
-  font-weight: 600;
-  font-size: 0.92rem;
-  box-shadow: var(--ob-shadow-sm);
-  transition: background-color 0.15s ease, transform 0.08s ease;
-}
-
-.ob-landing-nav-cta:hover {
-  background: var(--ob-primary-hover);
-}
-
-.ob-landing-nav-cta:active {
-  transform: translateY(1px);
-}
-
 .ob-landing-nav-right {
   display: flex;
   align-items: center;
@@ -399,22 +376,19 @@ body.ob-landing-active #root {
   color: var(--ovc-green);
 }
 
-.ob-landing-mockup-published {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ob-success) 16%, transparent);
-  color: var(--ob-success);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
 .ob-landing-mockup-body {
   display: grid;
   grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
-  min-height: 300px;
+  /* Fixed height so revealing the agent bubble and tool steps never grows
+     the frame — the composer stays pinned at the bottom (margin-top: auto). */
+  height: 410px;
+  transition: opacity 0.45s ease;
+}
+
+/* Fades the body out at the end of a loop so the reset back to the prompt is
+   not visually jarring; the next loop fades back in. */
+.ob-landing-mockup-body.is-fading {
+  opacity: 0;
 }
 
 .ob-landing-mockup-chat {
@@ -424,6 +398,8 @@ body.ob-landing-active #root {
   padding: 18px;
   border-right: 1px solid var(--ob-border);
   background: var(--ob-surface);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ob-landing-mockup-bubble {
@@ -497,6 +473,50 @@ body.ob-landing-active #root {
   object-fit: contain;
 }
 
+/* Typewriter caret shown while the agent reply streams in. */
+.ob-landing-mockup-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: ob-caret-blink 1s steps(2, end) infinite;
+}
+
+@keyframes ob-caret-blink {
+  50% { opacity: 0; }
+}
+
+/* "Coding…" loader — shown whenever the agent is working (every phase except
+   the live gif preview). */
+.ob-landing-mockup-coding {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--ob-surface-sunken);
+  color: var(--ob-text-muted);
+}
+
+.ob-landing-mockup-coding-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ob-landing-mockup-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 3px solid var(--ob-border);
+  border-top-color: var(--ovc-blue);
+  animation: ob-spin 0.9s linear infinite;
+}
+
 /* Faux tool-call steps beneath the agent reply — a static peek at the
    agent's write/patch loop. */
 .ob-landing-mockup-steps {
@@ -514,6 +534,7 @@ body.ob-landing-active #root {
   gap: 8px;
   color: var(--ob-text-secondary);
   font-size: 0.8rem;
+  animation: ob-fade-up 0.3s ease both;
 }
 
 .ob-landing-mockup-check {
@@ -877,6 +898,7 @@ body.ob-landing-active #root {
 
   .ob-landing-mockup-body {
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
   }
 
   .ob-landing-mockup-chat {
@@ -913,7 +935,10 @@ body.ob-landing-active #root {
 @media (prefers-reduced-motion: reduce) {
   .ob-landing-hero-glow,
   .ob-landing-mockup,
-  .ob-landing-mockup-bubble {
+  .ob-landing-mockup-bubble,
+  .ob-landing-mockup-steps li,
+  .ob-landing-mockup-caret,
+  .ob-landing-mockup-spinner {
     animation: none !important;
   }
 
