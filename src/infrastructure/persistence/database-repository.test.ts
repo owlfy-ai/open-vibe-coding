@@ -22,6 +22,8 @@ const database: AppDatabase = {
       pixabayApiUrl: "https://pixabay.com/api",
       unsplashApiKey: "",
       unsplashApiUrl: "https://api.unsplash.com",
+      pexelsApiKey: "",
+      pexelsApiUrl: "https://api.pexels.com/v1",
     },
     system: { language: "system", theme: "system" },
     privacy: { memoryEnabled: true },

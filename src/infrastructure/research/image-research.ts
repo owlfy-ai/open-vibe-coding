@@ -38,6 +38,24 @@ export class ImageResearchAdapter implements ImageResearchPort {
       if (!response.ok) return failure(response.error);
       return ok(records(response.value.hits).map(mapPixabayImage));
     }
+    if (settings.engine === "pexels") {
+      const parameters = new URLSearchParams({
+        query: input.query,
+        per_page: String(limit),
+      });
+      if (input.orientation === "horizontal") parameters.set("orientation", "landscape");
+      if (input.orientation === "vertical") parameters.set("orientation", "portrait");
+      if (input.color) parameters.set("color", input.color);
+      const response = await this.http.json<RecordValue>(
+        `${settings.pexelsApiUrl}/search?${parameters}`,
+        {
+          signal,
+          headers: { Authorization: settings.pexelsApiKey },
+        },
+      );
+      if (!response.ok) return failure(response.error);
+      return ok(records(response.value.photos).map(mapPexelsImage));
+    }
 
     const parameters = new URLSearchParams({
       query: input.query,
@@ -63,6 +81,21 @@ function mapPixabayImage(image: RecordValue): ImageSearchResult {
     width: number(image.webformatWidth),
     height: number(image.webformatHeight),
     description: string(image.tags),
+  };
+}
+
+function mapPexelsImage(image: RecordValue): ImageSearchResult {
+  const src = record(image.src);
+  const width = number(image.width) || 1;
+  const height = number(image.height) || 1;
+  const photographer = string(image.photographer);
+  const description = string(image.alt) || (photographer ? `Photo by ${photographer} on Pexels` : "Pexels photo");
+  return {
+    url: string(src.large2x) || string(src.large) || string(src.original),
+    thumbnail: string(src.tiny) || string(src.small) || string(src.medium),
+    width,
+    height,
+    description,
   };
 }
 

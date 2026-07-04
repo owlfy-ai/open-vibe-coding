@@ -2,7 +2,7 @@ import { err, ok, type Result } from "@/shared/result";
 
 export type ProviderType = "openai-compatible" | "openai" | "anthropic" | "google";
 export type WebSearchEngine = "tavily" | "firecrawl" | "builtin" | "disabled";
-export type AssetSearchEngine = "pixabay" | "unsplash" | "disabled";
+export type AssetSearchEngine = "pixabay" | "unsplash" | "pexels" | "disabled";
 export type LanguagePreference = "system" | "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -26,6 +26,8 @@ export interface AppSettings {
     readonly pixabayApiUrl: string;
     readonly unsplashApiKey: string;
     readonly unsplashApiUrl: string;
+    readonly pexelsApiKey: string;
+    readonly pexelsApiUrl: string;
   };
   readonly system: {
     readonly language: LanguagePreference;
@@ -62,6 +64,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     pixabayApiUrl: "https://pixabay.com/api",
     unsplashApiKey: "",
     unsplashApiUrl: "https://api.unsplash.com",
+    pexelsApiKey: "",
+    pexelsApiUrl: "https://api.pexels.com/v1",
   },
   system: {
     language: "system",
@@ -93,6 +97,8 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
       pixabayApiUrl: trimTrailingSlash(settings.assetSearch.pixabayApiUrl.trim()),
       unsplashApiKey: settings.assetSearch.unsplashApiKey,
       unsplashApiUrl: trimTrailingSlash(settings.assetSearch.unsplashApiUrl.trim()),
+      pexelsApiKey: settings.assetSearch.pexelsApiKey,
+      pexelsApiUrl: trimTrailingSlash(settings.assetSearch.pexelsApiUrl.trim()),
     },
     system: {
       language: settings.system.language,
@@ -145,6 +151,7 @@ export function redactSettings(settings: AppSettings): AppSettings {
       ...settings.assetSearch,
       pixabayApiKey: redactSecret(settings.assetSearch.pixabayApiKey),
       unsplashApiKey: redactSecret(settings.assetSearch.unsplashApiKey),
+      pexelsApiKey: redactSecret(settings.assetSearch.pexelsApiKey),
     },
   };
 }
