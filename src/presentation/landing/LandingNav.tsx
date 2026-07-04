@@ -32,7 +32,7 @@ export function LandingNav({
         <nav className="ob-landing-nav-links" aria-label="sections">
           <a href="#features">{copy.features}</a>
           <a href="#how">{copy.howItWorks}</a>
-          <a href="#ideas">{copy.showcase}</a>
+          <a href="#gallery">{copy.gallery}</a>
         </nav>
         <button className="ob-landing-nav-cta" type="button" onClick={onStart}>
           {copy.startCta}

@@ -89,6 +89,22 @@ export interface PublishedSite {
   readonly status: string;
   readonly currentVersionId: string;
   readonly url: string;
+  readonly thumbnailUrl?: string;
+  readonly showInGallery?: boolean;
+}
+
+export interface PublishedGallery {
+  readonly list: readonly PublishedGalleryItem[];
+  readonly total: number;
+}
+
+export interface PublishedGalleryItem {
+  readonly id: number;
+  readonly title: string;
+  readonly url: string;
+  readonly thumbnailUrl: string;
+  readonly authorName: string;
+  readonly createdAt: string;
 }
 
 export interface CheckPublishNameResult {
@@ -181,6 +197,10 @@ export class BackendClient implements BackendAuthPort {
 
   async cancelPublishedSite(id: number): Promise<void> {
     await this.postOwlfy<unknown>("/api/publish/site/cancel", { id });
+  }
+
+  async listPublishedGallery(pageSize = 6): Promise<PublishedGallery> {
+    return this.getOwlfy<PublishedGallery>(`/api/publish/gallery?page=1&pageSize=${pageSize}`, "");
   }
 
   async searchOfficialImages(input: ImageSearchInput): Promise<readonly ImageSearchResult[]> {

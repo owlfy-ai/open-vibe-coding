@@ -816,14 +816,11 @@ svg {
 }
 
 .ob-brand-mark {
-  display: grid;
   width: 28px;
   height: 28px;
   flex: none;
-  place-items: center;
   border-radius: 9px;
-  background: var(--ob-primary);
-  color: var(--ob-primary-contrast);
+  display: block;
 }
 
 /* ---------- Chat ---------- */

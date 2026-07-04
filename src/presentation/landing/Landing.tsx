@@ -6,6 +6,7 @@ import { LandingNav } from "./LandingNav";
 import { LandingHero } from "./LandingHero";
 import { LandingFeatures } from "./LandingFeatures";
 import { LandingHowItWorks } from "./LandingHowItWorks";
+import { LandingGallery } from "./LandingGallery";
 import { LandingFooter } from "./LandingFooter";
 import "./landing.css";
 
@@ -40,7 +41,8 @@ export function Landing({ onStart }: { readonly onStart: () => void }) {
       <LandingNav copy={copy.nav} onStart={onStart} />
       <LandingHero copy={copy.hero} onStart={onStart} />
       <LandingFeatures copy={copy.features} />
-      <LandingHowItWorks steps={copy.steps} showcase={copy.showcase} onStart={onStart} />
+      <LandingHowItWorks steps={copy.steps} />
+      <LandingGallery copy={copy.gallery} />
 
       <section className="ob-landing-container" aria-label={copy.cta.title}>
         <div className="ob-landing-cta-band">

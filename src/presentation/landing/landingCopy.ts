@@ -26,11 +26,10 @@ export interface LandingCopy {
     readonly brand: string;
     readonly features: string;
     readonly howItWorks: string;
-    readonly showcase: string;
+    readonly gallery: string;
     readonly startCta: string;
   };
   readonly hero: {
-    readonly badge: string;
     readonly title: string;
     readonly subtitle: string;
     readonly primaryCta: string;
@@ -53,11 +52,12 @@ export interface LandingCopy {
     readonly subheading: string;
     readonly items: readonly LandingStep[];
   };
-  readonly showcase: {
+  readonly gallery: {
     readonly heading: string;
     readonly subheading: string;
-    readonly prompts: readonly string[];
-    readonly hint: string;
+    readonly by: string;
+    readonly fallbackTitle: string;
+    readonly fallbackAuthor: string;
   };
   readonly cta: {
     readonly title: string;
@@ -75,14 +75,13 @@ const zh: LandingCopy = {
     brand: "Open Vibe Coding",
     features: "功能",
     howItWorks: "怎么用",
-    showcase: "灵感",
+    gallery: "作品",
     startCta: "开始创作",
   },
   hero: {
-    badge: "给每个人的 AI 创作伙伴",
-    title: "说一句话，就能做出自己的网页应用",
+    title: "一句话，就能做出自己的网页应用",
     subtitle:
-      "Open Vibe Coding 是一个懂你的 AI 创作伙伴。你用大白话描述点子，它帮你写代码、实时预览，还能一键发布链接，分享给朋友一起玩。",
+      "Open Vibe Coding 是一个懂你的 AI 创作伙伴。你用大白话描述点子，它帮你写代码、实时预览，还能一键发布链接，分享给朋友体验。",
     primaryCta: "开始创作",
     secondaryNote: "浏览器里直接运行 · 先体验，再登录",
     mockup: {
@@ -95,12 +94,12 @@ const zh: LandingCopy = {
   },
   features: {
     heading: "为什么大家都爱用",
-    subheading: "从一句话到一个能玩的作品，全程都有 AI 陪你。",
+    subheading: "从一个想法，到一个真正能用的应用，全程都有 AI 陪你。",
     items: [
       {
         icon: "sparkles",
         title: "自然语言创作",
-        desc: "不用写代码，用中文或英文说出想法，AI 帮你把它一步步做出来。",
+        desc: "不用写代码，用中文或英文描述想法，AI 帮你把它一步步做出来。",
       },
       {
         icon: "eye",
@@ -134,7 +133,7 @@ const zh: LandingCopy = {
     subheading: "不用安装，不用配置，打开就能开始。",
     items: [
       {
-        title: "说出你的点子",
+        title: "描述你的点子",
         desc: "用一句话描述想做什么，比如「一个收集星星的小游戏」。",
       },
       {
@@ -143,22 +142,16 @@ const zh: LandingCopy = {
       },
       {
         title: "发布并分享",
-        desc: "满意后一键发布，把链接发给朋友，立刻就能一起玩。",
+        desc: "满意后一键发布，把链接发给朋友，立刻就能使用。",
       },
     ],
   },
-  showcase: {
-    heading: "不知道做什么？试试这些",
-    subheading: "把这些点子粘进对话框，看它变成真的应用。",
-    prompts: [
-      "做一个收集星星的小游戏",
-      "做一个番茄钟，到点提醒我休息",
-      "做一个记忆翻牌小游戏",
-      "画一个会下彩虹雨的夜空",
-      "做一个给宠物记体重的页面",
-      "做一个倒计时惊喜盒子",
-    ],
-    hint: "点「开始创作」就能出发",
+  gallery: {
+    heading: "大家正在创作",
+    subheading: "看看其他用户已经发布到互联网上的 Vibe Coding 作品。",
+    by: "作者",
+    fallbackTitle: "未命名作品",
+    fallbackAuthor: "Qidea 创作者",
   },
   cta: {
     title: "你的第一个应用，从一句话开始",
@@ -176,12 +169,11 @@ const en: LandingCopy = {
     brand: "Open Vibe Coding",
     features: "Features",
     howItWorks: "How it works",
-    showcase: "Ideas",
+    gallery: "Gallery",
     startCta: "Start creating",
   },
   hero: {
-    badge: "An AI creative buddy for everyone",
-    title: "Say it. Build a web app you can actually play.",
+    title: "Describe it. Build a web app that actually works.",
     subtitle:
       "Open Vibe Coding is an AI buddy that gets you. Describe an idea in plain words — it writes the code, previews it live, and publishes a link to share with friends.",
     primaryCta: "Start creating",
@@ -196,7 +188,7 @@ const en: LandingCopy = {
   },
   features: {
     heading: "Why people love it",
-    subheading: "From one sentence to a playable creation, with AI by your side.",
+    subheading: "From one sentence to a real, working app, with AI by your side.",
     items: [
       {
         icon: "sparkles",
@@ -235,7 +227,7 @@ const en: LandingCopy = {
     subheading: "Nothing to install, nothing to configure. Open and start.",
     items: [
       {
-        title: "Say your idea",
+        title: "Describe your idea",
         desc: "Describe what you want in one line, like \"a star-collecting game.\"",
       },
       {
@@ -248,18 +240,12 @@ const en: LandingCopy = {
       },
     ],
   },
-  showcase: {
-    heading: "Not sure what to make? Try these",
-    subheading: "Paste a prompt into the chat and watch it become a real app.",
-    prompts: [
-      "Make a star-collecting game",
-      "Make a pomodoro timer that reminds me to rest",
-      "Make a memory matching game",
-      "Draw a night sky with rainbow rain",
-      "Make a page to track my pet's weight",
-      "Make a countdown surprise box",
-    ],
-    hint: "Click \"Start creating\" to begin",
+  gallery: {
+    heading: "Built by the community",
+    subheading: "Explore published Vibe Coding creations from other users.",
+    by: "By",
+    fallbackTitle: "Untitled creation",
+    fallbackAuthor: "Qidea creator",
   },
   cta: {
     title: "Your first app starts with one sentence",

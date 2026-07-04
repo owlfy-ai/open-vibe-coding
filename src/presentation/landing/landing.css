@@ -273,25 +273,6 @@ body.ob-landing-active #root {
   text-align: center;
 }
 
-.ob-landing-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border: 1px solid var(--ob-border-strong);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ob-surface) 70%, transparent);
-  color: var(--ob-text-secondary);
-  font-size: 0.82rem;
-  font-weight: 600;
-  backdrop-filter: blur(6px);
-  box-shadow: var(--ob-shadow-sm);
-}
-
-.ob-landing-badge svg {
-  color: var(--ovc-orange);
-}
-
 .ob-landing-hero h1 {
   margin: 22px auto 0;
   max-width: 16ch;
@@ -766,40 +747,60 @@ body.ob-landing-active #root {
 }
 
 /* ============================================================
-   Showcase (prompt ideas)
+   Published gallery
    ============================================================ */
-.ob-landing-showcase-grid {
+.ob-landing-gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
-.ob-landing-prompt {
-  display: flex;
-  align-items: center;
-  padding: 18px;
+.ob-landing-gallery-card {
+  display: grid;
+  overflow: hidden;
   border: 1px solid var(--ob-border);
   border-radius: var(--ob-radius-lg);
   background: var(--ob-surface);
   color: var(--ob-text);
-  font-size: 0.96rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
+  text-decoration: none;
+  box-shadow: var(--ob-shadow-sm);
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.ob-landing-prompt:hover {
-  transform: translateY(-2px);
+.ob-landing-gallery-card:hover {
+  transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--ovc-blue) 50%, var(--ob-border-strong));
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ovc-blue) 14%, transparent);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--ovc-blue) 14%, transparent);
 }
 
-.ob-landing-showcase-hint {
-  margin-top: 26px;
-  text-align: center;
+.ob-landing-gallery-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--ob-surface-sunken);
+}
+
+.ob-landing-gallery-card span {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.ob-landing-gallery-card strong {
+  overflow: hidden;
+  font-size: 0.98rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ob-landing-gallery-card small {
+  overflow: hidden;
   color: var(--ob-text-muted);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ============================================================
@@ -907,7 +908,7 @@ body.ob-landing-active #root {
   }
 
   .ob-landing-features-grid,
-  .ob-landing-showcase-grid {
+  .ob-landing-gallery-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -953,7 +954,7 @@ body.ob-landing-active #root {
   }
 
   .ob-landing-features-grid,
-  .ob-landing-showcase-grid {
+  .ob-landing-gallery-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -977,8 +978,7 @@ body.ob-landing-active #root {
     animation: none !important;
   }
 
-  .ob-landing-feature,
-  .ob-landing-prompt {
+  .ob-landing-feature {
     transition: none !important;
   }
 }

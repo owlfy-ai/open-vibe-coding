@@ -49,6 +49,7 @@ export function SessionSidebar({
     return (
       <aside className="ob-sidebar ob-sidebar-collapsed" ref={sidebarRef}>
         <div className="ob-sidebar-collapsed-top">
+          <BrandLogo />
           <button className="ob-icon-button" onClick={() => onCollapsedChange(false)} aria-label={t.sidebar.openSessions}>
             <Icon name="menu" />
           </button>
@@ -74,7 +75,7 @@ export function SessionSidebar({
     <aside className="ob-sidebar" ref={sidebarRef}>
       <header className="ob-sidebar-header">
         <div className="ob-sidebar-title-row">
-          <span className="ob-brand-mark"><Icon name="command" size={16} /></span>
+          <BrandLogo />
           <strong>{t.app.name}</strong>
         </div>
         <button className="ob-icon-button" onClick={() => onCollapsedChange(true)} aria-label={t.sidebar.collapseSessions}>
@@ -255,6 +256,10 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
       ) : null}
     </div>
   );
+}
+
+function BrandLogo() {
+  return <img className="ob-brand-mark" src="/logo.svg" alt="" />;
 }
 
 function avatarInitial(value: string): string {

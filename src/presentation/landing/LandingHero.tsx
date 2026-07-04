@@ -12,10 +12,6 @@ export function LandingHero({
     <section className="ob-landing-hero" id="top">
       <div className="ob-landing-hero-glow" aria-hidden="true" />
       <div className="ob-landing-container ob-landing-hero-content">
-        <span className="ob-landing-badge">
-          <Icon name="sparkles" size={15} />
-          {copy.badge}
-        </span>
         <h1>{copy.title}</h1>
         <p className="ob-landing-hero-sub">{copy.subtitle}</p>
         <div className="ob-landing-hero-actions">

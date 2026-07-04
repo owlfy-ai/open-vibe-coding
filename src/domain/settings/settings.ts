@@ -77,6 +77,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export function normalizeSettings(settings: AppSettings): AppSettings {
+  const assetSearch = { ...DEFAULT_SETTINGS.assetSearch, ...settings.assetSearch };
+  const webSearch = { ...DEFAULT_SETTINGS.webSearch, ...settings.webSearch };
   const apiKey = settings.ai.apiKey.trim();
   const apiBaseUrl = trimTrailingSlash(settings.ai.apiBaseUrl.trim());
   const rawModel = settings.ai.model.trim();
@@ -92,20 +94,20 @@ export function normalizeSettings(settings: AppSettings): AppSettings {
       model,
     },
     webSearch: {
-      engine: settings.webSearch.engine,
-      tavilyApiKey: settings.webSearch.tavilyApiKey,
-      tavilyApiUrl: trimTrailingSlash(settings.webSearch.tavilyApiUrl.trim()),
-      firecrawlApiKey: settings.webSearch.firecrawlApiKey,
-      firecrawlApiUrl: trimTrailingSlash(settings.webSearch.firecrawlApiUrl.trim()),
+      engine: webSearch.engine,
+      tavilyApiKey: webSearch.tavilyApiKey,
+      tavilyApiUrl: trimTrailingSlash(webSearch.tavilyApiUrl.trim()),
+      firecrawlApiKey: webSearch.firecrawlApiKey,
+      firecrawlApiUrl: trimTrailingSlash(webSearch.firecrawlApiUrl.trim()),
     },
     assetSearch: {
-      engine: settings.assetSearch.engine,
-      pixabayApiKey: settings.assetSearch.pixabayApiKey,
-      pixabayApiUrl: trimTrailingSlash(settings.assetSearch.pixabayApiUrl.trim()),
-      unsplashApiKey: settings.assetSearch.unsplashApiKey,
-      unsplashApiUrl: trimTrailingSlash(settings.assetSearch.unsplashApiUrl.trim()),
-      pexelsApiKey: settings.assetSearch.pexelsApiKey,
-      pexelsApiUrl: trimTrailingSlash(settings.assetSearch.pexelsApiUrl.trim()),
+      engine: assetSearch.engine,
+      pixabayApiKey: assetSearch.pixabayApiKey,
+      pixabayApiUrl: trimTrailingSlash(assetSearch.pixabayApiUrl.trim()),
+      unsplashApiKey: assetSearch.unsplashApiKey,
+      unsplashApiUrl: trimTrailingSlash(assetSearch.unsplashApiUrl.trim()),
+      pexelsApiKey: assetSearch.pexelsApiKey,
+      pexelsApiUrl: trimTrailingSlash(assetSearch.pexelsApiUrl.trim()),
     },
     system: {
       language: settings.system.language,
