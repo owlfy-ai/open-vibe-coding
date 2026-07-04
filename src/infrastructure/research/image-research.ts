@@ -1,4 +1,5 @@
 import type { AppSettings } from "@/domain/settings";
+import type { BackendClient } from "@/infrastructure/backend";
 import type {
   ImageResearchPort,
   ImageSearchInput,
@@ -11,17 +12,22 @@ import { err, ok, type Result } from "@/shared/result";
 type RecordValue = Record<string, unknown>;
 
 export class ImageResearchAdapter implements ImageResearchPort {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly backend?: BackendClient,
+  ) {}
 
   async search(
     settings: AppSettings["assetSearch"],
     input: ImageSearchInput,
     signal: AbortSignal,
   ): Promise<Result<readonly ImageSearchResult[], ResearchError>> {
-    if (settings.engine === "disabled") {
-      return err({ code: "disabled", message: "Image search is disabled" });
-    }
     const limit = clamp(input.limit ?? 10, 1, 20);
+    if (usesOfficialImageSearch(settings)) {
+      if (!this.backend) return err({ code: "disabled", message: "Official image search is unavailable" });
+      const images = await this.backend.searchOfficialImages({ ...input, limit });
+      return ok(images);
+    }
     if (settings.engine === "pixabay") {
       const parameters = new URLSearchParams({
         key: settings.pixabayApiKey,
@@ -72,6 +78,14 @@ export class ImageResearchAdapter implements ImageResearchPort {
     if (!response.ok) return failure(response.error);
     return ok(records(response.value.results).map(mapUnsplashImage));
   }
+}
+
+function usesOfficialImageSearch(settings: AppSettings["assetSearch"]): boolean {
+  if (settings.engine === "official") return true;
+  if (settings.engine === "pixabay") return !settings.pixabayApiKey.trim();
+  if (settings.engine === "unsplash") return !settings.unsplashApiKey.trim();
+  if (settings.engine === "pexels") return !settings.pexelsApiKey.trim();
+  return false;
 }
 
 function mapPixabayImage(image: RecordValue): ImageSearchResult {

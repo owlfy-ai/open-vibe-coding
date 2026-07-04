@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "@/shared/result";
 
-export type ProviderType = "openai-compatible" | "openai" | "anthropic" | "google";
+export type ProviderType = "official" | "openai-compatible" | "openai" | "anthropic" | "google";
 export type WebSearchEngine = "tavily" | "firecrawl" | "builtin" | "disabled";
-export type AssetSearchEngine = "pixabay" | "unsplash" | "pexels" | "disabled";
+export type AssetSearchEngine = "official" | "pixabay" | "unsplash" | "pexels";
 export type LanguagePreference = "system" | "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -46,10 +46,10 @@ export interface SettingsValidationError {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   ai: {
-    apiType: "openai-compatible",
+    apiType: "official",
     apiKey: "",
     apiBaseUrl: "",
-    model: "",
+    model: "Standard",
   },
   webSearch: {
     engine: "disabled",
@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     firecrawlApiUrl: "https://api.firecrawl.dev",
   },
   assetSearch: {
-    engine: "disabled",
+    engine: "official",
     pixabayApiKey: "",
     pixabayApiUrl: "https://pixabay.com/api",
     unsplashApiKey: "",
@@ -90,13 +90,25 @@ export function normalizeSettings(settings: AppSettings | SettingsInput): AppSet
   const assetSearch = { ...DEFAULT_SETTINGS.assetSearch, ...settings.assetSearch };
   const system = { ...DEFAULT_SETTINGS.system, ...settings.system };
   const privacy = { ...DEFAULT_SETTINGS.privacy, ...settings.privacy };
+  const apiKey = stringOrDefault(ai.apiKey, DEFAULT_SETTINGS.ai.apiKey).trim();
+  const apiBaseUrl = trimTrailingSlash(stringOrDefault(ai.apiBaseUrl, DEFAULT_SETTINGS.ai.apiBaseUrl).trim());
+  const rawModel = stringOrDefault(ai.model, DEFAULT_SETTINGS.ai.model).trim();
+  const normalizedApiType = enumOr(
+    ai.apiType,
+    ["official", "openai-compatible", "openai", "anthropic", "google"],
+    DEFAULT_SETTINGS.ai.apiType,
+  );
+  const apiType = isEmptyLegacyProvider(normalizedApiType, apiKey, apiBaseUrl, rawModel)
+    ? "official"
+    : normalizedApiType;
+  const model = apiType === "official" ? normalizeOfficialModel(rawModel) : rawModel;
 
   return {
     ai: {
-      apiType: enumOr(ai.apiType, ["openai-compatible", "openai", "anthropic", "google"], DEFAULT_SETTINGS.ai.apiType),
-      apiKey: stringOrDefault(ai.apiKey, DEFAULT_SETTINGS.ai.apiKey).trim(),
-      apiBaseUrl: trimTrailingSlash(stringOrDefault(ai.apiBaseUrl, DEFAULT_SETTINGS.ai.apiBaseUrl).trim()),
-      model: stringOrDefault(ai.model, DEFAULT_SETTINGS.ai.model).trim(),
+      apiType,
+      apiKey,
+      apiBaseUrl,
+      model,
     },
     webSearch: {
       engine: enumOr(webSearch.engine, ["tavily", "firecrawl", "builtin", "disabled"], DEFAULT_SETTINGS.webSearch.engine),
@@ -106,7 +118,7 @@ export function normalizeSettings(settings: AppSettings | SettingsInput): AppSet
       firecrawlApiUrl: trimTrailingSlash(stringOrDefault(webSearch.firecrawlApiUrl, DEFAULT_SETTINGS.webSearch.firecrawlApiUrl).trim()),
     },
     assetSearch: {
-      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "pexels", "disabled"], DEFAULT_SETTINGS.assetSearch.engine),
+      engine: enumOr(assetSearch.engine, ["official", "pixabay", "unsplash", "pexels"], DEFAULT_SETTINGS.assetSearch.engine),
       pixabayApiKey: stringOrDefault(assetSearch.pixabayApiKey, DEFAULT_SETTINGS.assetSearch.pixabayApiKey),
       pixabayApiUrl: trimTrailingSlash(stringOrDefault(assetSearch.pixabayApiUrl, DEFAULT_SETTINGS.assetSearch.pixabayApiUrl).trim()),
       unsplashApiKey: stringOrDefault(assetSearch.unsplashApiKey, DEFAULT_SETTINGS.assetSearch.unsplashApiKey),
@@ -129,6 +141,7 @@ export function validateAiSettings(
 ): Result<AppSettings, readonly SettingsValidationError[]> {
   const normalized = normalizeSettings(settings);
   const errors: SettingsValidationError[] = [];
+  if (normalized.ai.apiType === "official") return ok(normalized);
   if (!normalized.ai.apiKey) {
     errors.push({ code: "missing-api-key", field: "ai.apiKey", message: "API key is required" });
   }
@@ -177,6 +190,19 @@ function redactSecret(secret: string): string {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function isEmptyLegacyProvider(
+  apiType: ProviderType,
+  apiKey: string,
+  apiBaseUrl: string,
+  model: string,
+): boolean {
+  return apiType === "openai-compatible" && !apiKey && !apiBaseUrl && !model;
+}
+
+function normalizeOfficialModel(model: string): string {
+  return model === "Ultra" ? "Ultra" : "Standard";
 }
 
 function stringOrDefault(value: unknown, fallback: string): string {
