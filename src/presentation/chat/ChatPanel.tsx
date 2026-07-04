@@ -209,6 +209,11 @@ export function ChatPanel({
         )}
         {stream ? <article className="ob-message ob-message-assistant"><p>{stream}</p></article> : null}
         {running && !stream ? <div className="ob-running">{interpolate(t.chat.running, { status: runState.status.replaceAll("-", " ") })}</div> : null}
+        {runState.status === "failed" ? (
+          <article className="ob-message ob-message-assistant is-error">
+            <p>{agentFailureTitle(runState.error.code, t)}: {runState.error.message}</p>
+          </article>
+        ) : null}
       </div>
       {serviceError ? (
         <button className="ob-config-warning" onClick={onOpenSettings}>
@@ -374,6 +379,10 @@ function resizeComposerTextarea(element: HTMLTextAreaElement | null): void {
   if (!element) return;
   element.style.height = "0px";
   element.style.height = `${Math.min(element.scrollHeight, 220)}px`;
+}
+
+function agentFailureTitle(code: string, t: Translation): string {
+  return code === "max-iterations" ? t.chat.agentStopped : t.chat.modelFailed;
 }
 
 async function pickAttachments(
