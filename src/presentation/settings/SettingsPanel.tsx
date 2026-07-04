@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { MemoryId } from "@/domain/memory";
 import type {
   AppSettings,
@@ -18,6 +18,17 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const [tab, setTab] = useState<"model" | "research" | "appearance" | "memory">("model");
   const [saving, setSaving] = useState(false);
   const t = dictionary(resolveLanguage(settings.system.language));
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
