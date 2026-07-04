@@ -6,6 +6,7 @@ import type {
 } from "@/application/backend/auth";
 import type { OperationsConfig } from "@/app/operations-config";
 import type { JsonValue } from "@/domain/conversation";
+import type { ImageSearchInput, ImageSearchResult } from "@/application/ports/research";
 
 const SESSION_STORAGE_KEY = "ovc.backend.session";
 
@@ -180,6 +181,16 @@ export class BackendClient implements BackendAuthPort {
 
   async cancelPublishedSite(id: number): Promise<void> {
     await this.postOwlfy<unknown>("/api/publish/site/cancel", { id });
+  }
+
+  async searchOfficialImages(input: ImageSearchInput): Promise<readonly ImageSearchResult[]> {
+    return this.postOwlfy<readonly ImageSearchResult[]>("/api/publish/image/search", {
+      query: input.query,
+      imageType: input.imageType ?? "all",
+      orientation: input.orientation ?? "all",
+      color: input.color ?? "",
+      limit: input.limit ?? 10,
+    });
   }
 
   liteLlmBaseUrl(): string {

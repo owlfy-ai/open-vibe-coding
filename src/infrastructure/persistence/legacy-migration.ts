@@ -277,7 +277,7 @@ function migrateSettings(state: UnknownRecord): AppSettings {
       firecrawlApiUrl: optionalString(webSearch.firecrawlApiUrl) ?? "https://api.firecrawl.dev",
     },
     assetSearch: {
-      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "pexels", "disabled"], "disabled"),
+      engine: enumOr(assetSearch.engine, ["official", "pixabay", "unsplash", "pexels", "disabled"], "official"),
       pixabayApiKey: optionalString(assetSearch.pixabayApiKey) ?? "",
       pixabayApiUrl: optionalString(assetSearch.pixabayApiUrl) ?? "https://pixabay.com/api",
       unsplashApiKey: optionalString(assetSearch.unsplashApiKey) ?? "",

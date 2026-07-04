@@ -17,7 +17,7 @@ const database: AppDatabase = {
       firecrawlApiUrl: "https://api.firecrawl.dev",
     },
     assetSearch: {
-      engine: "disabled",
+      engine: "official",
       pixabayApiKey: "",
       pixabayApiUrl: "https://pixabay.com/api",
       unsplashApiKey: "",

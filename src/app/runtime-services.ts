@@ -61,8 +61,9 @@ export function createRuntimeServices(
     );
     const http = dependencies.http ?? new FetchHttpClient();
     const preview = dependencies.preview ?? new PreviewCoordinator();
+    const backend = new BackendClient(operations);
     const web = new WebResearchAdapter(http);
-    const image = new ImageResearchAdapter(http);
+    const image = new ImageResearchAdapter(http, backend);
     const packages = new PackageResearchAdapter(http, runtime.clock);
     const settingsProvider = () => runtime.session.snapshot().settings;
     const imageTool = createImageSearchTool(image, settingsProvider);

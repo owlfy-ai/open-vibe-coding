@@ -2,7 +2,7 @@ import { err, ok, type Result } from "@/shared/result";
 
 export type ProviderType = "official" | "openai-compatible" | "openai" | "anthropic" | "google";
 export type WebSearchEngine = "tavily" | "firecrawl" | "builtin" | "disabled";
-export type AssetSearchEngine = "pixabay" | "unsplash" | "pexels" | "disabled";
+export type AssetSearchEngine = "official" | "pixabay" | "unsplash" | "pexels" | "disabled";
 export type LanguagePreference = "system" | "zh" | "en";
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     firecrawlApiUrl: "https://api.firecrawl.dev",
   },
   assetSearch: {
-    engine: "disabled",
+    engine: "official",
     pixabayApiKey: "",
     pixabayApiUrl: "https://pixabay.com/api",
     unsplashApiKey: "",
