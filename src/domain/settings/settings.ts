@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     apiType: "official",
     apiKey: "",
     apiBaseUrl: "",
-    model: "Standard",
+    model: "Ultra",
   },
   webSearch: {
     engine: "disabled",
@@ -202,7 +202,8 @@ function isEmptyLegacyProvider(
 }
 
 function normalizeOfficialModel(model: string): string {
-  return model === "Ultra" ? "Ultra" : "Standard";
+  void model;
+  return "Ultra";
 }
 
 function stringOrDefault(value: unknown, fallback: string): string {

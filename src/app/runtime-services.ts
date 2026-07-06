@@ -133,6 +133,5 @@ function createLanguageModel(
 
 function officialModelName(model: string, fallback: string): string {
   if (model === "Ultra") return "Ultra";
-  if (model === "Standard") return "Standard";
-  return fallback || "Standard";
+  return fallback || "Ultra";
 }

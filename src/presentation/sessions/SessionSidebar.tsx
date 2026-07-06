@@ -198,7 +198,7 @@ function AccountMenu({ collapsed = false }: { readonly collapsed?: boolean }) {
           aria-label={t.auth.signIn}
           title={t.auth.signIn}
         >
-          {user?.imageUrl ? <img src={user.imageUrl} alt="" /> : "U"}
+          <Icon name="user" />
         </button>
       </div>
     );

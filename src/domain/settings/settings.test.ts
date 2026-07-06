@@ -31,6 +31,13 @@ describe("settings domain", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
+  it("always normalizes official model settings to Ultra", () => {
+    expect(normalizeSettings({
+      ...DEFAULT_SETTINGS,
+      ai: { ...DEFAULT_SETTINGS.ai, model: "Standard" },
+    }).ai.model).toBe("Ultra");
+  });
+
   it("fills newly added asset-search fields for older persisted settings", () => {
     const legacy = {
       ...DEFAULT_SETTINGS,

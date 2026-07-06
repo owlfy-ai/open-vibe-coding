@@ -13,6 +13,7 @@ export interface BackendPlan {
 
 export interface BackendSession {
   readonly accessToken: string;
+  readonly expiresAt?: number;
   readonly liteLlmKey?: string;
   readonly vipLevel?: number;
   readonly user: BackendUser;

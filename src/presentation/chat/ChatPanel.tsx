@@ -14,8 +14,6 @@ import { ChatMessage } from "./ChatMessage";
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const PENDING_CHAT_SUBMIT_KEY = "ovc.pendingChatSubmit";
-const STANDARD_MODEL = "Standard";
-const ULTRA_MODEL = "Ultra";
 
 interface PendingAttachment {
   readonly name: string;
@@ -47,7 +45,7 @@ export function ChatPanel({
   readonly onSelectedElementClear?: () => void;
   readonly onElementPromptRequestConsumed?: () => void;
 }) {
-  const { database, services, serviceError, runtime, refreshServices } = useApplication();
+  const { database, services, serviceError, runtime } = useApplication();
   const account = useBackendAccount();
   const t = useT();
   const [input, setInput] = useState("");
@@ -64,8 +62,6 @@ export function ChatPanel({
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
   const normalizedSettings = useMemo(() => normalizeSettings(database.settings), [database.settings]);
   const officialModelEnabled = normalizedSettings.ai.apiType === "official";
-  const canUseUltra = (account?.session?.vipLevel ?? 0) > 0 || account?.session?.plan.status === "active";
-  const selectedOfficialModel = normalizedSettings.ai.model === ULTRA_MODEL && canUseUltra ? ULTRA_MODEL : STANDARD_MODEL;
   const messages = conversation?.conversation.messages ?? [];
   const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0) && !running);
 
@@ -271,15 +267,6 @@ export function ChatPanel({
     );
   }
 
-  async function changeOfficialModel(model: string) {
-    if (model === ULTRA_MODEL && !canUseUltra) return;
-    const next = await runtime.session.updateSettings({
-      ...normalizedSettings,
-      ai: { ...normalizedSettings.ai, model },
-    });
-    if (next.ok) refreshServices();
-  }
-
   return (
     <section className="ob-chat">
       <header className="ob-chat-header">
@@ -319,21 +306,6 @@ export function ChatPanel({
       <form className="ob-composer" onSubmit={submit}>
         <div className="ob-composer-toolbar">
           <div className="ob-composer-toolbar-left">
-            {officialModelEnabled ? (
-              <label className="ob-model-select" title={t.chat.modelSelector}>
-                <span>{t.chat.modelSelector}</span>
-                <select
-                  value={selectedOfficialModel}
-                  onChange={(event) => void changeOfficialModel(event.currentTarget.value)}
-                  disabled={running}
-                >
-                  <option value={STANDARD_MODEL}>{t.chat.standardModel}</option>
-                  <option value={ULTRA_MODEL} disabled={!canUseUltra}>
-                    {t.chat.ultraModel}{canUseUltra ? "" : ` (${t.chat.vipOnly})`}
-                  </option>
-                </select>
-              </label>
-            ) : null}
             <label className="ob-attach-button" aria-label={t.chat.attach} title={t.chat.attach}>
               <Icon name="image" size={17} />
               <input

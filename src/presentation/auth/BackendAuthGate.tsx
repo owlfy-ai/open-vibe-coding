@@ -34,6 +34,7 @@ export function BackendAuthGate({
   const [loginOpen, setLoginOpen] = useState(false);
   const pendingLoginResolvers = useRef<Array<(session: BackendSession | null) => void>>([]);
   const exchangedClerkSessionId = useRef<string | null>(null);
+  const autoRestoredClerkSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -66,14 +67,21 @@ export function BackendAuthGate({
   }, []);
 
   const requireLogin = useCallback(() => {
-    const current = client.current() ?? session;
+    const current = client.current();
     if (current) return Promise.resolve(current);
+    setSession(null);
     sessionStorage.setItem("ovc.pendingBackendLogin", "1");
     setLoginOpen(true);
     return new Promise<BackendSession | null>((resolve) => {
       pendingLoginResolvers.current.push(resolve);
     });
-  }, [client, session]);
+  }, [client]);
+
+  const exchangeClerkSession = useCallback(async (): Promise<BackendSession> => {
+    const sessionToken = await getToken();
+    if (!sessionToken) throw new Error(t.auth.loginFailed);
+    return client.clerkLogin("email", sessionToken);
+  }, [client, getToken, t.auth.loginFailed]);
 
   useEffect(() => {
     const pending = sessionStorage.getItem("ovc.pendingBackendLogin") === "1";
@@ -81,18 +89,31 @@ export function BackendAuthGate({
     if (exchangedClerkSessionId.current === clerkSession.id) return;
     exchangedClerkSessionId.current = clerkSession.id;
     setLoading(true);
-    getToken()
-      .then((sessionToken) => {
-        if (!sessionToken) throw new Error(t.auth.loginFailed);
-        return client.clerkLogin("oauth_google", sessionToken);
-      })
+    exchangeClerkSession()
       .then(completeLogin)
       .catch(() => {
         exchangedClerkSessionId.current = null;
         setLoginOpen(true);
       })
       .finally(() => setLoading(false));
-  }, [client, clerkSession, clerkSessionLoaded, completeLogin, getToken, session, t.auth.loginFailed]);
+  }, [clerkSession, clerkSessionLoaded, completeLogin, exchangeClerkSession, session]);
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem("ovc.pendingBackendLogin") === "1";
+    if (pending || session || !clerkSessionLoaded || !clerkSession) return;
+    if (autoRestoredClerkSessionId.current === clerkSession.id) return;
+    autoRestoredClerkSessionId.current = clerkSession.id;
+    setLoading(true);
+    exchangeClerkSession()
+      .then((next) => {
+        setSession(next);
+        refreshServices();
+      })
+      .catch(() => {
+        client.logout();
+      })
+      .finally(() => setLoading(false));
+  }, [client, clerkSession, clerkSessionLoaded, exchangeClerkSession, refreshServices, session]);
 
   const account = {
     client,

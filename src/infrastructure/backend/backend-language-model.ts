@@ -7,7 +7,7 @@ import { BackendAuthRequiredError } from "./backend-client";
 export class BackendLanguageModelAdapter implements LanguageModelPort {
   constructor(
     private readonly backend: BackendClient,
-    private readonly model = "Standard",
+    private readonly model = "Ultra",
   ) {}
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
@@ -31,7 +31,7 @@ export class BackendLanguageModelAdapter implements LanguageModelPort {
   }
 
   private selectedModel(session: NonNullable<ReturnType<BackendClient["current"]>>): string {
-    if (this.model === "Ultra" && (session.vipLevel ?? 0) <= 0) return "Standard";
+    void session;
     return this.model || this.backend.liteLlmModel();
   }
 }

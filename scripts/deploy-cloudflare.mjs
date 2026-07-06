@@ -15,7 +15,7 @@ if (!existsSync(configPath)) {
   fail("wrangler.jsonc was not found.");
 }
 
-run("pnpm", ["dlx", "wrangler@latest", "deploy", "--config", configPath]);
+run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath]);
 
 function run(command, args) {
   const printable = [command, ...args].join(" ");

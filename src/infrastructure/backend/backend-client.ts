@@ -37,6 +37,7 @@ interface OwlfyResponse<T> {
 
 interface OwlfyLoginData {
   readonly token: string;
+  readonly expiresAt?: number;
   readonly user: OwlfyUser;
   readonly liteLlmKey?: string;
 }
@@ -224,6 +225,7 @@ export class BackendClient implements BackendAuthPort {
   private persistLoginData(data: OwlfyLoginData): BackendSession {
     const session = {
       accessToken: data.token,
+      expiresAt: normalizeExpiresAt(data.expiresAt),
       liteLlmKey: normalizeLiteLlmKey(data.user, data.liteLlmKey),
       vipLevel: normalizeVipLevel(data.user),
       user: normalizeUser(data.user),
@@ -255,6 +257,7 @@ export class BackendClient implements BackendAuthPort {
       headers: this.headers(token),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
+    updateSessionTokenFromHeaders(response);
     if (!response.ok) throw await toBackendError(response);
     const envelope = (await response.json()) as OwlfyResponse<T> | T;
     if (isOwlfyEnvelope(envelope)) {
@@ -299,6 +302,11 @@ function normalizeVipLevel(user?: OwlfyUser): number {
   return user?.vip_level ?? 0;
 }
 
+function normalizeExpiresAt(value?: number): number | undefined {
+  if (!value || !Number.isFinite(value)) return undefined;
+  return value < 10_000_000_000 ? value * 1000 : value;
+}
+
 function totalPoints(user?: OwlfyUser): number {
   return (user?.points ?? 0) + (user?.freePoints ?? 0) + (user?.vipPoints ?? 0);
 }
@@ -322,6 +330,19 @@ function writeSession(session: BackendSession): void {
 
 function clearSession(): void {
   localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+function updateSessionTokenFromHeaders(response: Response): void {
+  const token = response.headers.get("new-token");
+  if (!token) return;
+  const current = readSession();
+  if (!current) return;
+  const expiresAt = normalizeExpiresAt(Number(response.headers.get("new-expires-at")));
+  writeSession({
+    ...current,
+    accessToken: token,
+    expiresAt: expiresAt ?? current.expiresAt,
+  });
 }
 
 function normalizeExternalUrl(value: string): string {
