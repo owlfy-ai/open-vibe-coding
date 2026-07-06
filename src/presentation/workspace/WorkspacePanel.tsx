@@ -30,6 +30,8 @@ const CodeMirrorEditor = lazy(() =>
 type Device = "desktop" | "tablet" | "mobile";
 type PublishStatus = "idle" | "checking" | "publishing" | "success" | "error";
 const PENDING_PUBLISH_OPEN_KEY = "ovc.pendingPublishOpen";
+const PUBLISH_STATUS_POLL_INTERVAL_MS = 2_500;
+const PUBLISH_STATUS_TIMEOUT_MS = 180_000;
 type FileTreeNode = {
   readonly name: string;
   readonly path: string;
@@ -256,9 +258,16 @@ export function WorkspacePanel({
         setPublishMessage(t.workspace.publishLoginRequired);
         return;
       }
+      setPublishMessage(t.workspace.publishWaiting);
+      const ready = await waitForPublishedSiteReady(account, site.id, t.workspace, (buildStatus) => {
+        setPublishMessage(buildStatusMessage(buildStatus, t.workspace));
+      });
+      const url = ready.url || ready.site.url || site.url;
       setPublishStatus("success");
-      setPublishedUrl(site.url);
+      setPublishedUrl(url);
       setPublishMessage(t.workspace.publishSuccess);
+      void loadPublishedSites();
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       setPublishStatus("error");
       setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
@@ -804,6 +813,46 @@ async function withBackendLoginRetry<T>(
   const session = await account.requireLogin();
   if (!session) return null;
   return action();
+}
+
+async function waitForPublishedSiteReady(
+  account: NonNullable<ReturnType<typeof useBackendAccount>>,
+  siteId: number,
+  labels: ReturnType<typeof useT>["workspace"],
+  onStatus: (buildStatus: string) => void,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < PUBLISH_STATUS_TIMEOUT_MS) {
+    const status = await withBackendLoginRetry(account, () => account.client.getPublishedSiteStatus(siteId));
+    if (!status) throw new Error(labels.publishLoginRequired);
+    onStatus(status.buildStatus);
+    if (status.buildStatus === "succeeded") return status;
+    if (status.buildStatus === "failed") {
+      throw new Error(buildFailedMessage(status.buildLog, labels));
+    }
+    await sleep(PUBLISH_STATUS_POLL_INTERVAL_MS);
+  }
+  throw new Error(labels.publishTimeout);
+}
+
+function buildStatusMessage(buildStatus: string, labels: ReturnType<typeof useT>["workspace"]): string {
+  if (buildStatus === "queued") return labels.publishQueued;
+  if (buildStatus === "building") return labels.publishBuilding;
+  return labels.publishWaiting;
+}
+
+function buildFailedMessage(buildLog: string, labels: ReturnType<typeof useT>["workspace"]): string {
+  const tail = buildLog
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-4)
+    .join("\n");
+  return tail ? `${labels.publishFailed}\n${tail}` : labels.publishFailed;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function FileTree({

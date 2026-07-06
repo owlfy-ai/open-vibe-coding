@@ -94,6 +94,14 @@ export interface PublishedSite {
   readonly showInGallery?: boolean;
 }
 
+export interface PublishedSiteStatus {
+  readonly site: PublishedSite;
+  readonly versionId: string;
+  readonly buildStatus: "queued" | "building" | "succeeded" | "failed" | string;
+  readonly buildLog: string;
+  readonly url: string;
+}
+
 export interface PublishedGallery {
   readonly list: readonly PublishedGalleryItem[];
   readonly total: number;
@@ -194,6 +202,10 @@ export class BackendClient implements BackendAuthPort {
 
   async listPublishedSites(): Promise<readonly PublishedSite[]> {
     return this.getOwlfy<readonly PublishedSite[]>("/api/publish/sites");
+  }
+
+  async getPublishedSiteStatus(id: number): Promise<PublishedSiteStatus> {
+    return this.getOwlfy<PublishedSiteStatus>(`/api/publish/site/status?id=${encodeURIComponent(String(id))}`);
   }
 
   async cancelPublishedSite(id: number): Promise<void> {
