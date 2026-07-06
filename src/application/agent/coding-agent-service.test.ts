@@ -28,6 +28,27 @@ class ScriptedModel implements LanguageModelPort {
   }
 }
 
+class InterruptibleModel implements LanguageModelPort {
+  readonly requests: ModelRequest[] = [];
+  private firstRequestStarted: (() => void) | null = null;
+  readonly firstRequestReady = new Promise<void>((resolve) => {
+    this.firstRequestStarted = resolve;
+  });
+
+  async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    this.requests.push(request);
+    if (this.requests.length === 1) {
+      this.firstRequestStarted?.();
+      await new Promise<void>((_, reject) => {
+        request.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+      return;
+    }
+    yield { type: "text-delta", delta: "Updated direction." };
+    yield { type: "finish", reason: "stop" };
+  }
+}
+
 describe("CodingAgentService", () => {
   it("persists user messages, tool-driven project changes and assistant output", async () => {
     const ids = new SequentialIdGenerator();
@@ -168,6 +189,51 @@ describe("CodingAgentService", () => {
         },
       ],
     });
+    expect(model.requests[0].systemPrompt).toContain("Infer the user's language from the latest visible user request");
+    expect(model.requests[0].systemPrompt).toContain("Latest visible user request:\n改成蓝色背景");
+    expect(model.requests[0].systemPrompt).not.toContain("Latest visible user request:\nSelected element edit task");
+  });
+
+  it("interrupts an active run and restarts with the latest user request in context", async () => {
+    const ids = new SequentialIdGenerator();
+    const session = new ApplicationSession(
+      createEmptyDatabase(1),
+      new AppDatabaseRepository(new InMemoryKeyValueStorage()),
+      ids,
+      new FixedClock(100),
+    );
+    const created = await session.createConversation();
+    if (!created.ok) throw new Error("create failed");
+    const model = new InterruptibleModel();
+    const service = new CodingAgentService(
+      session,
+      model,
+      new PreviewCoordinator(),
+      ids,
+      new FixedClock(100),
+    );
+
+    const firstRun = service.run(created.value, [{ type: "text", text: "Build a puzzle game" }]);
+    await model.firstRequestReady;
+    const secondRun = await service.interruptAndRun(created.value, [
+      { type: "text", text: "Actually make it a racing game" },
+    ]);
+    const firstResult = await firstRun;
+
+    expect(firstResult).toMatchObject({ ok: true, value: { state: { status: "cancelled" } } });
+    expect(secondRun).toMatchObject({ ok: true, value: { state: { status: "completed" } } });
+    expect(model.requests).toHaveLength(2);
+    expect(model.requests[1].messages.map((message) => message.role)).toEqual(["user", "user"]);
+    expect(model.requests[1].messages[1]).toMatchObject({
+      role: "user",
+      content: [{ type: "text", text: "Actually make it a racing game" }],
+    });
+    expect(model.requests[1].systemPrompt).toContain("The previous agent run was interrupted");
+    expect(session.snapshot().conversations[created.value].conversation.messages.map((message) => message.role)).toEqual([
+      "user",
+      "user",
+      "assistant",
+    ]);
   });
 
   it("places compressed history in the system prompt", () => {
