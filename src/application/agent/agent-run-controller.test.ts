@@ -217,4 +217,77 @@ describe("AgentRunController", () => {
       content: [{ type: "text", text: "Ready" }],
     });
   });
+
+  it("treats plain terminal server error text as a console problem", async () => {
+    const ids = new SequentialIdGenerator();
+    const writeCallId = ids.next("tool-call");
+    const fixCallId = ids.next("tool-call");
+    const model = new ScriptedModel([
+      [
+        { type: "tool-call", callId: writeCallId, toolName: "write_file", input: { path: "src/App.tsx", content: "bad" } },
+        { type: "finish", reason: "tool-calls" },
+      ],
+      [
+        { type: "text-delta", delta: "Done" },
+        { type: "finish", reason: "stop" },
+      ],
+      [
+        { type: "tool-call", callId: fixCallId, toolName: "patch_file", input: { path: "src/App.tsx", patches: [] } },
+        { type: "finish", reason: "tool-calls" },
+      ],
+      [
+        { type: "text-delta", delta: "Fixed" },
+        { type: "finish", reason: "stop" },
+      ],
+      [
+        { type: "text-delta", delta: "Ready" },
+        { type: "finish", reason: "stop" },
+      ],
+    ]);
+    let consoleChecks = 0;
+    const mutationTool: AgentTool = {
+      definition: { name: "write_file", description: "Write", inputSchema: {} },
+      execute: vi.fn(async () => ({ ok: true as const, value: { revision: 2, changes: [] } })),
+    };
+    const patchTool: AgentTool = {
+      definition: { name: "patch_file", description: "Patch", inputSchema: {} },
+      execute: vi.fn(async () => ({ ok: true as const, value: { revision: 3, changes: [] } })),
+    };
+    const consoleTool: AgentTool = {
+      definition: { name: "get_console_logs", description: "Console", inputSchema: {} },
+      execute: vi.fn(async () => {
+        consoleChecks += 1;
+        return {
+          ok: true as const,
+          value: {
+            revision: consoleChecks === 1 ? 2 : 3,
+            status: "ready",
+            logs: consoleChecks === 1
+              ? [{
+                  method: "log",
+                  data: [
+                    '"clearScreenDown" is not yet implemented.',
+                    "[vite] Internal server error: The service is no longer running\nPlugin: vite:esbuild\nFile: /src/App.tsx",
+                  ],
+                }]
+              : [],
+          },
+        };
+      }),
+    };
+    const controller = new AgentRunController(
+      model,
+      new ToolRegistry([mutationTool, patchTool, consoleTool]),
+      ids,
+      new FixedClock(100),
+    );
+    const result = await controller.run([]);
+
+    expect(consoleTool.execute).toHaveBeenCalledTimes(2);
+    expect(patchTool.execute).toHaveBeenCalledOnce();
+    expect(result.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: [{ type: "text", text: "Ready" }],
+    });
+  });
 });

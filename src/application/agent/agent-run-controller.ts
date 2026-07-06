@@ -280,8 +280,49 @@ function hasConsoleProblems(output: ToolExecutionResult): boolean {
   if (status === "failed") return true;
   const logs = value.logs;
   return Array.isArray(logs) && logs.some((entry) => {
-    return isJsonRecord(entry) && entry.method === "error";
+    return isJsonRecord(entry) && (
+      entry.method === "error" ||
+      hasTerminalErrorText(entry.data)
+    );
   });
+}
+
+function hasTerminalErrorText(data: unknown): boolean {
+  const text = formatConsoleData(data)
+    .split(/\r?\n/)
+    .filter((line) => !isKnownConsoleNoise(line))
+    .join("\n");
+  if (!text) return false;
+  return [
+    /\bInternal server error\b/i,
+    /\bThe service is no longer running\b/i,
+    /\bThe service was stopped\b/i,
+    /\bFailed to compile\b/i,
+    /\bCompilation failed\b/i,
+    /\bBuild failed\b/i,
+    /\bTransform failed\b/i,
+    /\bSyntaxError\b/i,
+    /\bReferenceError\b/i,
+    /\bTypeError\b/i,
+    /\bError:\s+/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isKnownConsoleNoise(text: string): boolean {
+  return [
+    /"clearScreenDown" is not yet implemented/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+function formatConsoleData(data: unknown): string {
+  if (Array.isArray(data)) return data.map(formatConsoleData).join("\n");
+  if (typeof data === "string") return data;
+  if (data instanceof Error) return `${data.name}: ${data.message}\n${data.stack ?? ""}`;
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return String(data);
+  }
 }
 
 function isJsonRecord(value: unknown): value is { readonly [key: string]: unknown } {
