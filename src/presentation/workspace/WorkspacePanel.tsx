@@ -65,6 +65,7 @@ export function WorkspacePanel({
   const [createTarget, setCreateTarget] = useState<{ readonly type: "file" | "directory"; readonly parent: string } | null>(null);
   const [createName, setCreateName] = useState("");
   const [publishOpen, setPublishOpen] = useState(false);
+  const [publishCreationTitle, setPublishCreationTitle] = useState(() => defaultPublishTitle(conversation.conversation.title));
   const [publishAppName, setPublishAppName] = useState(() => defaultAppName(conversation.conversation.title));
   const [publishSubdomain, setPublishSubdomain] = useState("");
   const [publishStatus, setPublishStatus] = useState<PublishStatus>("idle");
@@ -168,6 +169,7 @@ export function WorkspacePanel({
     setCreateName("");
   }, []);
   const showPublishDialog = useCallback(() => {
+    setPublishCreationTitle(defaultPublishTitle(conversation.conversation.title));
     setPublishAppName((current) => current || defaultAppName(conversation.conversation.title));
     setPublishStatus("idle");
     setPublishMessage(null);
@@ -233,6 +235,12 @@ export function WorkspacePanel({
       setPublishMessage(t.workspace.publishLoginRequired);
       return;
     }
+    if (!publishCreationTitle.trim()) {
+      setPublishStatus("error");
+      setPublishMessage(t.workspace.publishTitleRequired);
+      return;
+    }
+    const creationTitle = publishCreationTitle.trim();
     const validationError = validatePublishRoute(publishAppName, publishSubdomain, canUseCustomSubdomain, t.workspace);
     if (validationError) {
       setPublishStatus("error");
@@ -242,12 +250,15 @@ export function WorkspacePanel({
     setPublishStatus("publishing");
     setPublishMessage(null);
     try {
+      if (conversation.conversation.title !== creationTitle) {
+        await runtime.session.updateConversation(conversation.conversation.id, { title: creationTitle });
+      }
       const subdomain = canUseCustomSubdomain ? publishSubdomain.trim() : "";
       const site = await withBackendLoginRetry(account, async () => {
         if (subdomain) await account.client.setPublishSubDomain(subdomain);
         return account.client.publishSite({
           conversationId: conversation.conversation.id,
-          title: conversation.conversation.title || t.sidebar.untitled,
+          title: creationTitle,
           appName: publishAppName.trim(),
           subdomain,
           files: conversation.project.files,
@@ -275,7 +286,7 @@ export function WorkspacePanel({
         void loadPublishedSites();
       }
     }
-  }, [account, canUseCustomSubdomain, conversation.conversation.id, conversation.conversation.title, conversation.project.files, loadPublishedSites, publishAppName, publishSubdomain, t.sidebar.untitled, t.workspace]);
+  }, [account, canUseCustomSubdomain, conversation.conversation.id, conversation.conversation.title, conversation.project.files, loadPublishedSites, publishAppName, publishCreationTitle, publishSubdomain, runtime.session, t.workspace]);
   const cancelPublishedSite = useCallback(async (site: PublishedSite) => {
     if (!account || !window.confirm(t.workspace.cancelPublishedConfirm)) return;
     setCancelPublishBusyId(site.id);
@@ -589,6 +600,7 @@ export function WorkspacePanel({
       )}
       {publishOpen ? (
         <PublishDialog
+          creationTitle={publishCreationTitle}
           appName={publishAppName}
           canUseCustomSubdomain={canUseCustomSubdomain}
           vipLevel={vipLevel}
@@ -600,6 +612,7 @@ export function WorkspacePanel({
           publishedSites={publishedSites}
           cancelBusyId={cancelPublishBusyId}
           labels={t.workspace}
+          onCreationTitleChange={setPublishCreationTitle}
           onAppNameChange={setPublishAppName}
           onSubdomainChange={setPublishSubdomain}
           onCheckName={() => void checkPublishName()}
@@ -613,6 +626,7 @@ export function WorkspacePanel({
 }
 
 function PublishDialog({
+  creationTitle,
   appName,
   subdomain,
   canUseCustomSubdomain,
@@ -624,6 +638,7 @@ function PublishDialog({
   publishedSites,
   cancelBusyId,
   labels,
+  onCreationTitleChange,
   onAppNameChange,
   onSubdomainChange,
   onCheckName,
@@ -631,6 +646,7 @@ function PublishDialog({
   onClose,
   onSubmit,
 }: {
+  readonly creationTitle: string;
   readonly appName: string;
   readonly subdomain: string;
   readonly canUseCustomSubdomain: boolean;
@@ -642,6 +658,7 @@ function PublishDialog({
   readonly publishedSites: readonly PublishedSite[];
   readonly cancelBusyId: number | null;
   readonly labels: ReturnType<typeof useT>["workspace"];
+  readonly onCreationTitleChange: (value: string) => void;
   readonly onAppNameChange: (value: string) => void;
   readonly onSubdomainChange: (value: string) => void;
   readonly onCheckName: () => void;
@@ -668,6 +685,17 @@ function PublishDialog({
           <p className="ob-publish-rule">
             {canUseCustomSubdomain ? labels.publishProRule : vipLevel > 0 ? labels.publishPlusRule : labels.publishFreeRule}
           </p>
+          <label className="ob-field">
+            <span>{labels.publishCreationName}</span>
+            <input
+              value={creationTitle}
+              required
+              maxLength={80}
+              placeholder={labels.publishCreationNamePlaceholder}
+              onChange={(event) => onCreationTitleChange(event.currentTarget.value)}
+            />
+            <small>{labels.publishCreationNameHint}</small>
+          </label>
           {canUseCustomSubdomain ? (
             <label className="ob-field">
               <span>{labels.publishSubdomain}</span>
@@ -754,6 +782,11 @@ function firstFile(conversation: PersistedConversation): string {
   return Object.keys(conversation.project.files).find((path) => /(?:App|index|main)\./.test(path)) ?? Object.keys(conversation.project.files)[0] ?? "package.json";
 }
 
+function defaultPublishTitle(title: string | null): string {
+  const trimmed = title?.trim() ?? "";
+  return isDefaultConversationTitle(trimmed) ? "" : trimmed;
+}
+
 function defaultAppName(title: string | null): string {
   const slug = (title || "my-qidea-app")
     .toLowerCase()
@@ -762,6 +795,10 @@ function defaultAppName(title: string | null): string {
     .replace(/^-+|-+$/g, "");
   const base = slug || "my-qidea-app";
   return base.length >= 8 ? base : `${base}-app`.padEnd(8, "0");
+}
+
+function isDefaultConversationTitle(title: string): boolean {
+  return title === "" || title === "新创作" || title === "New creation";
 }
 
 function publishUrlPreview(appName: string, subdomain: string, pro: boolean): string {
