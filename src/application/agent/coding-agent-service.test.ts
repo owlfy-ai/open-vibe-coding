@@ -168,6 +168,9 @@ describe("CodingAgentService", () => {
         },
       ],
     });
+    expect(model.requests[0].systemPrompt).toContain("Infer the user's language from the latest visible user request");
+    expect(model.requests[0].systemPrompt).toContain("Latest visible user request:\n改成蓝色背景");
+    expect(model.requests[0].systemPrompt).not.toContain("Latest visible user request:\nSelected element edit task");
   });
 
   it("places compressed history in the system prompt", () => {

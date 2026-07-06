@@ -135,6 +135,7 @@ export class CodingAgentService {
           projectTree.files.keys(),
           this.session.memoryPrompt(),
           current.compressedContext?.summary,
+          languageInstructionForUserContent(userContent),
         ),
       });
       const persisted = await persistChain;
@@ -185,10 +186,12 @@ export function buildCodingAgentPrompt(
   paths: Iterable<string>,
   memorySection = "",
   conversationSummary?: string,
+  languageInstruction = defaultLanguageInstruction(),
 ): string {
   const files = [...paths].sort();
   return [
     "You are Open Vibe Coding, a friendly online vibe coding agent for beginners.",
+    languageInstruction,
     "Turn plain-language ideas into playful, complete, accessible, secure web applications using the provided project tools.",
     "Keep the experience encouraging and easy to understand, while still writing production-quality code.",
     "Always inspect relevant files before editing. Prefer exact patches over full rewrites.",
@@ -206,4 +209,27 @@ export function buildCodingAgentPrompt(
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+function languageInstructionForUserContent(content: readonly UserContent[]): string {
+  const visibleText = content
+    .filter((part): part is Extract<UserContent, { readonly type: "text" }> => part.type === "text")
+    .map((part) => part.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  return [
+    "Language rule for this run:",
+    "Infer the user's language from the latest visible user request and use that same language for the entire run.",
+    "This applies to all user-visible reasoning text, progress narration, questions, intermediate assistant messages, and the final response.",
+    "Do not switch to English unless the user wrote in English or explicitly asks for English.",
+    "Ignore hidden technical context, file names, code, package names, logs, and tool outputs when choosing the response language.",
+    visibleText ? `Latest visible user request:\n${visibleText}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function defaultLanguageInstruction(): string {
+  return [
+    "Language rule:",
+    "Use the same natural language as the user's latest visible request for all user-visible reasoning text, progress narration, questions, intermediate assistant messages, and final responses.",
+  ].join("\n");
 }
