@@ -48,7 +48,7 @@ export function ChatPanel({
   const processedElementPromptRef = useRef<string | null>(null);
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
   const messages = conversation?.conversation.messages ?? [];
-  const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0) && !running);
+  const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0));
 
   const toolResults = useMemo(
     () =>
@@ -139,9 +139,10 @@ export function ChatPanel({
     content: readonly UserContent[],
     options: { readonly hiddenContext?: string } = {},
   ) {
-    if (!conversation || !services || running) return;
+    if (!conversation || !services) return;
     setStream("");
-    await services.agent.run(conversation.conversation.id, content, {
+    const run = running ? services.agent.interruptAndRun.bind(services.agent) : services.agent.run.bind(services.agent);
+    await run(conversation.conversation.id, content, {
       hiddenContext: options.hiddenContext,
       observer: {
         onStateChange: setRunState,
@@ -288,6 +289,9 @@ export function ChatPanel({
             placeholder={t.chat.inputPlaceholder}
             rows={1}
           />
+          <button className="ob-composer-run-button" disabled={!canSend} type="submit" aria-label={running ? t.chat.send : t.chat.start}>
+            <span>{running ? t.chat.send : t.chat.start}</span>
+          </button>
           {running && conversation && services ? (
             <button
               type="button"
@@ -297,11 +301,7 @@ export function ChatPanel({
             >
               <span>{t.chat.stop}</span>
             </button>
-          ) : (
-            <button className="ob-composer-run-button" disabled={!canSend} type="submit" aria-label={t.chat.start}>
-              <span>{t.chat.start}</span>
-            </button>
-          )}
+          ) : null}
         </div>
         {attachments.length > 0 ? (
           <div className="ob-attachments">

@@ -41,10 +41,16 @@ export interface CodingAgentRunOptions {
   readonly observer?: AgentRunObserver;
   readonly extraTools?: ConstructorParameters<typeof ToolRegistry>[0];
   readonly hiddenContext?: string;
+  readonly interruptedPreviousRun?: boolean;
+}
+
+interface ActiveAgentRun {
+  readonly controller: AgentRunController;
+  readonly finished: Promise<Result<AgentRunResult, CodingAgentError>>;
 }
 
 export class CodingAgentService {
-  private readonly activeRuns = new Map<ConversationId, AgentRunController>();
+  private readonly activeRuns = new Map<ConversationId, ActiveAgentRun>();
 
   constructor(
     private readonly session: ApplicationSession,
@@ -99,13 +105,57 @@ export class CodingAgentService {
       ...(options.extraTools ?? []),
       ...this.baseTools,
     ]);
-    const controller = new AgentRunController(
-      this.model,
-      tools,
-      this.ids,
-      this.clock,
-    );
-    this.activeRuns.set(conversationId, controller);
+    const controller = new AgentRunController(this.model, tools, this.ids, this.clock);
+    const runPromise = this.executeRun({
+      conversationId,
+      userMessage,
+      userContent,
+      options,
+      controller,
+      sessionProject,
+    });
+    this.activeRuns.set(conversationId, { controller, finished: runPromise });
+    return runPromise;
+  }
+
+  async interruptAndRun(
+    conversationId: ConversationId,
+    userContent: readonly UserContent[],
+    options: CodingAgentRunOptions = {},
+  ): Promise<Result<AgentRunResult, CodingAgentError>> {
+    const active = this.activeRuns.get(conversationId);
+    if (active) {
+      active.controller.cancel();
+      await active.finished;
+    }
+    return this.run(conversationId, userContent, {
+      ...options,
+      interruptedPreviousRun: true,
+    });
+  }
+
+  cancel(conversationId: ConversationId): boolean {
+    const active = this.activeRuns.get(conversationId);
+    if (!active) return false;
+    active.controller.cancel();
+    return true;
+  }
+
+  private async executeRun({
+    conversationId,
+    userMessage,
+    userContent,
+    options,
+    controller,
+    sessionProject,
+  }: {
+    readonly conversationId: ConversationId;
+    readonly userMessage: UserMessage;
+    readonly userContent: readonly UserContent[];
+    readonly options: CodingAgentRunOptions;
+    readonly controller: AgentRunController;
+    readonly sessionProject: SessionProjectToolPort;
+  }): Promise<Result<AgentRunResult, CodingAgentError>> {
     try {
       const current = this.session.snapshot().conversations[conversationId];
       const conversation = current.conversation;
@@ -135,7 +185,7 @@ export class CodingAgentService {
           projectTree.files.keys(),
           this.session.memoryPrompt(),
           current.compressedContext?.summary,
-          languageInstructionForUserContent(userContent),
+          runInstructionForUserContent(userContent, options.interruptedPreviousRun === true),
         ),
       });
       const persisted = await persistChain;
@@ -143,13 +193,6 @@ export class CodingAgentService {
     } finally {
       this.activeRuns.delete(conversationId);
     }
-  }
-
-  cancel(conversationId: ConversationId): boolean {
-    const controller = this.activeRuns.get(conversationId);
-    if (!controller) return false;
-    controller.cancel();
-    return true;
   }
 
   private sessionError<T>(error: ApplicationError): Result<T, CodingAgentError> {
@@ -211,7 +254,7 @@ export function buildCodingAgentPrompt(
     .join("\n\n");
 }
 
-function languageInstructionForUserContent(content: readonly UserContent[]): string {
+function runInstructionForUserContent(content: readonly UserContent[], interruptedPreviousRun: boolean): string {
   const visibleText = content
     .filter((part): part is Extract<UserContent, { readonly type: "text" }> => part.type === "text")
     .map((part) => part.text.trim())
@@ -223,6 +266,12 @@ function languageInstructionForUserContent(content: readonly UserContent[]): str
     "This applies to all user-visible reasoning text, progress narration, questions, intermediate assistant messages, and the final response.",
     "Do not switch to English unless the user wrote in English or explicitly asks for English.",
     "Ignore hidden technical context, file names, code, package names, logs, and tool outputs when choosing the response language.",
+    interruptedPreviousRun ? [
+      "Interruption rule:",
+      "The previous agent run was interrupted because the user sent a newer request while work was in progress.",
+      "Prioritize the latest visible user request below and adapt any partially completed work accordingly.",
+      "Do not continue the old direction if it conflicts with this newer request.",
+    ].join("\n") : "",
     visibleText ? `Latest visible user request:\n${visibleText}` : "",
   ].filter(Boolean).join("\n");
 }
