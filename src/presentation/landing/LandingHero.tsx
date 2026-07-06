@@ -12,6 +12,29 @@ const PREVIEW_LINGER_MS = 3000;
 // Cross-fade when the loop resets: the body fades out, then the next loop's
 // prompt fades back in.
 const FADE_MS = 450;
+// How long the "Rendering…" loader shows between writing the files and the
+// live gif preview.
+const RENDER_MS = 1500;
+// File names cycled under the "Coding…" label during the tools phase to suggest
+// the agent actively writing code.
+const EDITING_FILES = [
+  "index.html",
+  "App.jsx",
+  "main.jsx",
+  "index.jsx",
+  "package.json",
+  "styles.css",
+  "game.css",
+  "gameLogic.js",
+  "dino.js",
+  "cactus.js",
+  "pterosaur.js",
+  "scoreboard.js",
+  "physics.js",
+  "input.js",
+  "utils.js",
+  "config.json",
+];
 
 export function LandingHero({
   copy,
@@ -108,7 +131,7 @@ function ProductMockup({
             </div>
           </div>
           <div className="ob-landing-mockup-preview">
-            <PreviewPane phase={phase} codingLabel={copy.coding} gifUrl={gifUrl} />
+            <PreviewPane phase={phase} codingLabel={copy.coding} gifUrl={gifUrl} editingPrefix={copy.editingPrefix} renderingLabel={copy.rendering} />
           </div>
         </div>
       </div>
@@ -120,14 +143,20 @@ function PreviewPane({
   phase,
   codingLabel,
   gifUrl,
+  editingPrefix,
+  renderingLabel,
 }: {
   readonly phase: MockupPhase;
   readonly codingLabel: string;
   readonly gifUrl: string;
+  readonly editingPrefix: string;
+  readonly renderingLabel: string;
 }) {
-  // Show the gif only during the preview phase. At every other moment — from
-  // the very first prompt through typing and tool calls — the "Coding…"
-  // loader is shown, since the agent is working the whole time.
+  const editingFile = useEditingFile(phase === "tools", EDITING_FILES);
+  // Show the gif only during the preview phase. Otherwise a loader is shown:
+  // "Coding…" while the agent works (cycling the file being edited during the
+  // tools phase), then "Rendering…" once the code is done and the build is
+  // being prepared.
   if (phase === "preview" || phase === "fading") {
     return (
       <img
@@ -141,12 +170,19 @@ function PreviewPane({
   return (
     <div className="ob-landing-mockup-coding">
       <span className="ob-landing-mockup-spinner" aria-hidden="true" />
-      <span className="ob-landing-mockup-coding-label">{codingLabel}</span>
+      <span className="ob-landing-mockup-coding-label">
+        {phase === "rendering" ? renderingLabel : codingLabel}
+      </span>
+      {editingFile ? (
+        <span className="ob-landing-mockup-editing">
+          {editingPrefix} <span className="ob-landing-mockup-editing-file">{editingFile}</span>…
+        </span>
+      ) : null}
     </div>
   );
 }
 
-type MockupPhase = "prompt" | "typing" | "tools" | "preview" | "fading";
+type MockupPhase = "prompt" | "typing" | "tools" | "rendering" | "preview" | "fading";
 
 /**
  * Drives the mockup loop. Phases advance on timers; typing and step reveal
@@ -185,12 +221,19 @@ function useMockupTimeline(agentMsg: string, stepCount: number) {
   useEffect(() => {
     if (reduceMotion || phase !== "tools") return;
     if (visibleSteps >= stepCount) {
-      const t = window.setTimeout(() => setPhase("preview"), 750);
+      const t = window.setTimeout(() => setPhase("rendering"), 750);
       return () => window.clearTimeout(t);
     }
     const t = window.setTimeout(() => setVisibleSteps((s) => s + 1), 680);
     return () => window.clearTimeout(t);
   }, [reduceMotion, phase, visibleSteps, stepCount]);
+
+  // All files written → render the final build before showing the live result.
+  useEffect(() => {
+    if (reduceMotion || phase !== "rendering") return;
+    const t = window.setTimeout(() => setPhase("preview"), RENDER_MS);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, phase]);
 
   useEffect(() => {
     if (reduceMotion || phase !== "preview") return;
@@ -277,4 +320,17 @@ function useGifUrl(phase: MockupPhase) {
   }, [phase]);
 
   return url;
+}
+
+function useEditingFile(active: boolean, files: readonly string[]) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    setIndex(0);
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % files.length);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [active, files.length]);
+  return active ? files[index] : null;
 }

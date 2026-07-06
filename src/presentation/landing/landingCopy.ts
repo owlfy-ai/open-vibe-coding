@@ -39,6 +39,8 @@ export interface LandingCopy {
       readonly steps: readonly string[];
       readonly composerPlaceholder: string;
       readonly coding: string;
+      readonly editingPrefix: string;
+      readonly rendering: string;
     };
   };
   readonly features: {
@@ -94,6 +96,8 @@ const zh: LandingCopy = {
       ],
       composerPlaceholder: "下一步修改建议",
       coding: "编码中…",
+      editingPrefix: "编辑",
+      rendering: "渲染中…",
     },
   },
   features: {
@@ -193,6 +197,8 @@ const en: LandingCopy = {
       ],
       composerPlaceholder: "Describe the next change",
       coding: "Coding…",
+      editingPrefix: "Editing",
+      rendering: "Rendering…",
     },
   },
   features: {

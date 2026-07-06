@@ -508,6 +508,18 @@ body.ob-landing-active #root {
   letter-spacing: 0.02em;
 }
 
+/* Cycled file name under the "Coding…" label during the tools phase. */
+.ob-landing-mockup-editing {
+  margin-top: 2px;
+  color: var(--ob-text-muted);
+  font-size: 0.78rem;
+}
+
+.ob-landing-mockup-editing-file {
+  font-family: var(--ob-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color: var(--ob-text-secondary);
+}
+
 .ob-landing-mockup-spinner {
   width: 30px;
   height: 30px;
