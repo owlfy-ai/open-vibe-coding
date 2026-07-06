@@ -10,6 +10,7 @@ interface BackendAccountContextValue {
   readonly client: BackendClient;
   readonly session: BackendSession | null;
   readonly loading: boolean;
+  readonly refresh: () => Promise<BackendSession | null>;
   readonly requireLogin: () => Promise<BackendSession | null>;
   readonly logout: () => Promise<void>;
 }
@@ -77,6 +78,13 @@ export function BackendAuthGate({
     });
   }, [client]);
 
+  const refresh = useCallback(async () => {
+    const next = await client.refresh();
+    setSession(next);
+    if (next) refreshServices();
+    return next;
+  }, [client, refreshServices]);
+
   const exchangeClerkSession = useCallback(async (): Promise<BackendSession> => {
     const sessionToken = await getToken();
     if (!sessionToken) throw new Error(t.auth.loginFailed);
@@ -119,6 +127,7 @@ export function BackendAuthGate({
     client,
     session,
     loading,
+    refresh,
     requireLogin,
     logout: async () => {
       await client.logout();

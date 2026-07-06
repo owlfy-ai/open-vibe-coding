@@ -61,6 +61,7 @@ interface OwlfyUser {
   readonly freePoints?: number;
   readonly vipPoints?: number;
   readonly vip_level?: number;
+  readonly publishSubDomain?: string;
   readonly vipExpireAt?: string;
   readonly apiKey?: string;
   readonly liteLlmKey?: string;
@@ -160,6 +161,7 @@ export class BackendClient implements BackendAuthPort {
         user,
         liteLlmKey: normalizeLiteLlmKey(owlfyUser, data.liteLlmKey) ?? current.liteLlmKey,
         vipLevel: owlfyUser ? normalizeVipLevel(owlfyUser) : current.vipLevel,
+        publishSubDomain: owlfyUser ? normalizePublishSubDomain(owlfyUser) : current.publishSubDomain,
         plan: owlfyUser ? normalizePlan(owlfyUser) : current.plan,
       };
       writeSession(session);
@@ -240,6 +242,7 @@ export class BackendClient implements BackendAuthPort {
       expiresAt: normalizeExpiresAt(data.expiresAt),
       liteLlmKey: normalizeLiteLlmKey(data.user, data.liteLlmKey),
       vipLevel: normalizeVipLevel(data.user),
+      publishSubDomain: normalizePublishSubDomain(data.user),
       user: normalizeUser(data.user),
       plan: normalizePlan(data.user),
     };
@@ -312,6 +315,11 @@ function normalizeLiteLlmKey(user?: OwlfyUser, fallback?: string): string | unde
 
 function normalizeVipLevel(user?: OwlfyUser): number {
   return user?.vip_level ?? 0;
+}
+
+function normalizePublishSubDomain(user?: OwlfyUser): string | undefined {
+  const value = user?.publishSubDomain?.trim();
+  return value || undefined;
 }
 
 function normalizeExpiresAt(value?: number): number | undefined {

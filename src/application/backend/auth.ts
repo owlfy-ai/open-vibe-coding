@@ -16,6 +16,7 @@ export interface BackendSession {
   readonly expiresAt?: number;
   readonly liteLlmKey?: string;
   readonly vipLevel?: number;
+  readonly publishSubDomain?: string;
   readonly user: BackendUser;
   readonly plan: BackendPlan;
 }

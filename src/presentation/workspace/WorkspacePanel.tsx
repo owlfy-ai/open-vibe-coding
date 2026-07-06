@@ -79,10 +79,12 @@ export function WorkspacePanel({
   const previewLoadingStartedAt = useRef(performance.now());
   const preview = services?.preview;
   const vipLevel = account?.session?.vipLevel ?? 0;
-  const canUseCustomSubdomain = vipLevel >= 2;
+  const canUseCustomSubdomain = vipLevel >= 1;
+  const fixedPublishSubdomain = account?.session?.publishSubDomain?.trim() ?? "";
+  const effectivePublishSubdomain = fixedPublishSubdomain || publishSubdomain;
   const effectivePublishUrl = useMemo(
-    () => publishUrlPreview(publishAppName, publishSubdomain, canUseCustomSubdomain),
-    [canUseCustomSubdomain, publishAppName, publishSubdomain],
+    () => publishUrlPreview(publishAppName, effectivePublishSubdomain, canUseCustomSubdomain),
+    [canUseCustomSubdomain, effectivePublishSubdomain, publishAppName],
   );
   const conversationId = conversation.conversation.id;
   const revision = conversation.project.revision;
@@ -196,7 +198,7 @@ export function WorkspacePanel({
       setPublishMessage(t.workspace.publishLoginRequired);
       return;
     }
-    const validationError = validatePublishRoute(publishAppName, publishSubdomain, canUseCustomSubdomain, t.workspace);
+    const validationError = validatePublishRoute(publishAppName, effectivePublishSubdomain, canUseCustomSubdomain, t.workspace);
     if (validationError) {
       setPublishStatus("error");
       setPublishMessage(validationError);
@@ -206,7 +208,7 @@ export function WorkspacePanel({
     setPublishMessage(null);
     try {
       const result = await withBackendLoginRetry(account, () =>
-        account.client.checkPublishName(publishAppName.trim(), canUseCustomSubdomain ? publishSubdomain.trim() : ""),
+        account.client.checkPublishName(publishAppName.trim(), canUseCustomSubdomain ? effectivePublishSubdomain.trim() : ""),
       );
       if (!result) {
         setPublishStatus("error");
@@ -214,13 +216,15 @@ export function WorkspacePanel({
         return;
       }
       setPublishStatus(result.available ? "success" : "error");
-      setPublishMessage(result.message || (result.available ? t.workspace.publishNameAvailable : t.workspace.publishInvalidName));
+      setPublishMessage(result.message
+        ? normalizePublishServerMessage(result.message, t.workspace)
+        : (result.available ? t.workspace.publishNameAvailable : t.workspace.publishInvalidName));
       setPublishedUrl(null);
     } catch (error) {
       setPublishStatus("error");
-      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+      setPublishMessage(error instanceof Error ? normalizePublishServerMessage(error.message, t.workspace) : t.workspace.publishInvalidName);
     }
-  }, [account, canUseCustomSubdomain, publishAppName, publishSubdomain, t.workspace]);
+  }, [account, canUseCustomSubdomain, effectivePublishSubdomain, publishAppName, t.workspace]);
   const loadPublishedSites = useCallback(async () => {
     if (!account) return [];
     const sites = await withBackendLoginRetry(account, () => account.client.listPublishedSites());
@@ -241,7 +245,7 @@ export function WorkspacePanel({
       return;
     }
     const creationTitle = publishCreationTitle.trim();
-    const validationError = validatePublishRoute(publishAppName, publishSubdomain, canUseCustomSubdomain, t.workspace);
+    const validationError = validatePublishRoute(publishAppName, effectivePublishSubdomain, canUseCustomSubdomain, t.workspace);
     if (validationError) {
       setPublishStatus("error");
       setPublishMessage(validationError);
@@ -253,9 +257,15 @@ export function WorkspacePanel({
       if (conversation.conversation.title !== creationTitle) {
         await runtime.session.updateConversation(conversation.conversation.id, { title: creationTitle });
       }
-      const subdomain = canUseCustomSubdomain ? publishSubdomain.trim() : "";
+      const subdomain = canUseCustomSubdomain ? effectivePublishSubdomain.trim() : "";
+      if (canUseCustomSubdomain && !fixedPublishSubdomain) {
+        const confirmed = window.confirm(t.workspace.publishSubdomainConfirm.replace("{domain}", `${subdomain}.qidea.ai`));
+        if (!confirmed) {
+          setPublishStatus("idle");
+          return;
+        }
+      }
       const site = await withBackendLoginRetry(account, async () => {
-        if (subdomain) await account.client.setPublishSubDomain(subdomain);
         return account.client.publishSite({
           conversationId: conversation.conversation.id,
           title: creationTitle,
@@ -274,6 +284,9 @@ export function WorkspacePanel({
         setPublishMessage(buildStatusMessage(buildStatus, t.workspace));
       });
       const url = ready.url || ready.site.url || site.url;
+      if (canUseCustomSubdomain && !fixedPublishSubdomain) {
+        await account.refresh();
+      }
       setPublishStatus("success");
       setPublishedUrl(url);
       setPublishMessage(t.workspace.publishSuccess);
@@ -281,12 +294,12 @@ export function WorkspacePanel({
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (error) {
       setPublishStatus("error");
-      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+      setPublishMessage(error instanceof Error ? normalizePublishServerMessage(error.message, t.workspace) : t.workspace.publishInvalidName);
       if (error instanceof Error && error.message.includes("免费用户最多只能发布")) {
         void loadPublishedSites();
       }
     }
-  }, [account, canUseCustomSubdomain, conversation.conversation.id, conversation.conversation.title, conversation.project.files, loadPublishedSites, publishAppName, publishCreationTitle, publishSubdomain, runtime.session, t.workspace]);
+  }, [account, canUseCustomSubdomain, conversation.conversation.id, conversation.conversation.title, conversation.project.files, effectivePublishSubdomain, fixedPublishSubdomain, loadPublishedSites, publishAppName, publishCreationTitle, runtime.session, t.workspace]);
   const cancelPublishedSite = useCallback(async (site: PublishedSite) => {
     if (!account || !window.confirm(t.workspace.cancelPublishedConfirm)) return;
     setCancelPublishBusyId(site.id);
@@ -297,7 +310,7 @@ export function WorkspacePanel({
       await loadPublishedSites();
     } catch (error) {
       setPublishStatus("error");
-      setPublishMessage(error instanceof Error ? error.message : t.workspace.publishInvalidName);
+      setPublishMessage(error instanceof Error ? normalizePublishServerMessage(error.message, t.workspace) : t.workspace.publishInvalidName);
     } finally {
       setCancelPublishBusyId(null);
     }
@@ -603,6 +616,7 @@ export function WorkspacePanel({
           creationTitle={publishCreationTitle}
           appName={publishAppName}
           canUseCustomSubdomain={canUseCustomSubdomain}
+          fixedSubdomain={fixedPublishSubdomain}
           vipLevel={vipLevel}
           subdomain={publishSubdomain}
           status={publishStatus}
@@ -630,6 +644,7 @@ function PublishDialog({
   appName,
   subdomain,
   canUseCustomSubdomain,
+  fixedSubdomain,
   vipLevel,
   status,
   message,
@@ -650,6 +665,7 @@ function PublishDialog({
   readonly appName: string;
   readonly subdomain: string;
   readonly canUseCustomSubdomain: boolean;
+  readonly fixedSubdomain: string;
   readonly vipLevel: number;
   readonly status: PublishStatus;
   readonly message: string | null;
@@ -667,6 +683,8 @@ function PublishDialog({
   readonly onSubmit: (event: FormEvent) => void;
 }) {
   const busy = status === "checking" || status === "publishing";
+  const hasFixedSubdomain = fixedSubdomain.trim() !== "";
+  const [activeTab, setActiveTab] = useState<"settings" | "published">("settings");
   return (
     <div className="ob-modal-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -682,96 +700,141 @@ function PublishDialog({
           </button>
         </header>
         <div className="ob-publish-body">
-          <p className="ob-publish-rule">
-            {canUseCustomSubdomain ? labels.publishProRule : vipLevel > 0 ? labels.publishPlusRule : labels.publishFreeRule}
-          </p>
-          <label className="ob-field">
-            <span>{labels.publishCreationName}</span>
-            <input
-              value={creationTitle}
-              required
-              maxLength={80}
-              placeholder={labels.publishCreationNamePlaceholder}
-              onChange={(event) => onCreationTitleChange(event.currentTarget.value)}
-            />
-            <small>{labels.publishCreationNameHint}</small>
-          </label>
-          {canUseCustomSubdomain ? (
-            <label className="ob-field">
-              <span>{labels.publishSubdomain}</span>
-              <div className="ob-publish-domain-row">
-                <input
-                  value={subdomain}
-                  minLength={3}
-                  pattern="[A-Za-z0-9-]+"
-                  placeholder="my-app"
-                  onChange={(event) => onSubdomainChange(event.currentTarget.value)}
-                />
-                <strong>.qidea.ai</strong>
-              </div>
-              <small>{labels.publishSubdomainHint}</small>
-            </label>
-          ) : null}
-          <label className="ob-field">
-            <span>{labels.publishAppName}</span>
-            <div className="ob-publish-name-row">
-              <input
-                value={appName}
-                minLength={canUseCustomSubdomain ? undefined : 8}
-                placeholder={canUseCustomSubdomain ? "optional-path" : "my-awesome-app"}
-                onBlur={onCheckName}
-                onChange={(event) => onAppNameChange(event.currentTarget.value)}
-              />
-              <button
-                type="button"
-                className="ob-secondary-button"
-                disabled={busy}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={onCheckName}
-              >
-                {status === "checking" ? labels.checkingPublishName : labels.checkPublishName}
-              </button>
-            </div>
-            <small>{canUseCustomSubdomain ? labels.publishProRule : labels.publishAppNameHint}</small>
-          </label>
-          <div className="ob-publish-url-preview">
-            <span>{labels.publishUrlPreview}</span>
-            <a href={url} target="_blank" rel="noreferrer">{url}</a>
+          <div className="ob-publish-tabs" role="tablist" aria-label={labels.publishTitle}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "settings"}
+              className={activeTab === "settings" ? "is-active" : ""}
+              onClick={() => setActiveTab("settings")}
+            >
+              {labels.publishSettingsTab}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "published"}
+              className={activeTab === "published" ? "is-active" : ""}
+              onClick={() => setActiveTab("published")}
+            >
+              {labels.publishedAppsTab}
+            </button>
           </div>
-          {message ? <p className={`ob-publish-message is-${status}`}>{message}</p> : null}
-          {publishedSites.length > 0 ? (
+          {activeTab === "settings" ? (
+            <>
+              <p className="ob-publish-rule">
+                {canUseCustomSubdomain ? labels.publishProRule : vipLevel > 0 ? labels.publishPlusRule : labels.publishFreeRule}
+              </p>
+              <label className="ob-field">
+                <span>{labels.publishCreationName}</span>
+                <input
+                  value={creationTitle}
+                  required
+                  maxLength={80}
+                  placeholder={labels.publishCreationNamePlaceholder}
+                  onChange={(event) => onCreationTitleChange(event.currentTarget.value)}
+                />
+                <small>{labels.publishCreationNameHint}</small>
+              </label>
+              <label className="ob-field">
+                <span>{labels.publishUrlPreview}</span>
+                <div className={canUseCustomSubdomain ? "ob-publish-url-row is-pro" : "ob-publish-url-row"}>
+                  {canUseCustomSubdomain ? (
+                    <>
+                      {hasFixedSubdomain ? (
+                        <span className="ob-publish-url-static">{`https://${fixedSubdomain}.qidea.ai/`}</span>
+                      ) : (
+                        <>
+                          <span className="ob-publish-url-static">https://</span>
+                          <input
+                            className="ob-publish-subdomain-input"
+                            aria-label={labels.publishSubdomain}
+                            value={subdomain}
+                            minLength={3}
+                            pattern="[A-Za-z0-9-]+"
+                            placeholder="your-name"
+                            onBlur={onCheckName}
+                            onChange={(event) => onSubdomainChange(event.currentTarget.value)}
+                          />
+                          <span className="ob-publish-url-static">.qidea.ai/</span>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <span className="ob-publish-url-static">https://app.qidea.ai/</span>
+                  )}
+                  <input
+                    className="ob-publish-path-input"
+                    aria-label={labels.publishPath}
+                    value={appName}
+                    minLength={canUseCustomSubdomain ? undefined : 8}
+                    placeholder={canUseCustomSubdomain ? "optional-path" : "my-awesome-app"}
+                    onBlur={onCheckName}
+                    onChange={(event) => onAppNameChange(event.currentTarget.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ob-secondary-button"
+                    disabled={busy}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={onCheckName}
+                  >
+                    {status === "checking" ? labels.checkingPublishName : labels.checkPublishName}
+                  </button>
+                </div>
+                <small>
+                  {canUseCustomSubdomain
+                    ? hasFixedSubdomain ? labels.publishSubdomainFixedHint : labels.publishSubdomainSetupHint
+                    : labels.publishPathHint}
+                </small>
+              </label>
+              {message ? <p className={`ob-publish-message is-${status}`}>{message}</p> : null}
+            </>
+          ) : (
             <section className="ob-published-sites" aria-label={labels.publishedAppsTitle}>
               <h3>{labels.publishedAppsTitle}</h3>
-              <div className="ob-published-site-list">
-                {publishedSites.map((site) => (
-                  <article className="ob-published-site" key={site.id}>
-                    <div>
-                      <strong>{site.title || site.appName || site.url}</strong>
-                      <a href={site.url} target="_blank" rel="noreferrer">{site.url}</a>
-                    </div>
-                    <button
-                      type="button"
-                      className="ob-secondary-button"
-                      disabled={cancelBusyId === site.id}
-                      onClick={() => onCancelPublishedSite(site)}
-                    >
-                      {cancelBusyId === site.id ? labels.cancelingPublishedApp : labels.cancelPublishedApp}
-                    </button>
-                  </article>
-                ))}
-              </div>
+              {publishedSites.length > 0 ? (
+                <div className="ob-published-site-list">
+                  {publishedSites.map((site) => (
+                    <article className="ob-published-site" key={site.id}>
+                      <div>
+                        <strong>{site.title || site.appName || site.url}</strong>
+                        <a href={site.url} target="_blank" rel="noreferrer">{site.url}</a>
+                      </div>
+                      <button
+                        type="button"
+                        className="ob-secondary-button"
+                        disabled={cancelBusyId === site.id}
+                        onClick={() => onCancelPublishedSite(site)}
+                      >
+                        {cancelBusyId === site.id ? labels.cancelingPublishedApp : labels.cancelPublishedApp}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="ob-published-empty">{labels.noPublishedApps}</p>
+              )}
             </section>
-          ) : null}
+          )}
         </div>
         <footer>
-          {published ? (
-            <a className="ob-secondary-button" href={url} target="_blank" rel="noreferrer">
-              {labels.publishOpen}
-            </a>
-          ) : null}
-          <button className="ob-primary-button" disabled={busy} type="submit">
-            {status === "publishing" ? labels.publishing : labels.publishNow}
-          </button>
+          {activeTab === "settings" ? (
+            <>
+              {published ? (
+                <a className="ob-secondary-button" href={url} target="_blank" rel="noreferrer">
+                  {labels.publishOpen}
+                </a>
+              ) : null}
+              <button className="ob-primary-button" disabled={busy} type="submit">
+                {status === "publishing" ? labels.publishing : labels.publishNow}
+              </button>
+            </>
+          ) : (
+            <button className="ob-secondary-button" type="button" onClick={onClose}>
+              {labels.publishCancel}
+            </button>
+          )}
         </footer>
       </form>
     </div>
@@ -886,6 +949,56 @@ function buildFailedMessage(buildLog: string, labels: ReturnType<typeof useT>["w
     .slice(-4)
     .join("\n");
   return tail ? `${labels.publishFailed}\n${tail}` : labels.publishFailed;
+}
+
+function normalizePublishServerMessage(message: string, labels: ReturnType<typeof useT>["workspace"]): string {
+  const normalized = message.trim();
+  const exactMessages: Record<string, string> = {
+    "应用名称可用": labels.publishNameAvailable,
+    "应用名称已被占用": labels.publishNameTaken,
+    "应用名称至少需要 8 个字符": labels.publishPathHint,
+    "应用名称包含不合法的 URL 字符": labels.publishInvalidName,
+    "免费用户最多只能发布 1 个项目": labels.publishFreeLimitReached,
+    "仅 Pro 用户可以设置专属二级域名": labels.publishProOnlySubdomain,
+    "仅 Plus 和 Pro 用户可以设置专属二级域名": labels.publishProOnlySubdomain,
+    "仅订阅会员可以设置专属二级域名": labels.publishProOnlySubdomain,
+    "二级域名可用": labels.publishSubdomainAvailable,
+    "二级域名已设置": labels.publishSubdomainFixedHint,
+    "二级域名已被占用": labels.publishSubdomainTaken,
+    "该二级域名已被占用": labels.publishSubdomainTaken,
+    "发布二级域名已设置，不能修改": labels.publishSubdomainFixed,
+    "专属二级域名至少需要 3 个字符": labels.publishSubdomainHint,
+    "该二级域名为系统保留名称": labels.publishInvalidSubdomain,
+    "二级域名只能包含小写字母、数字和连字符，且不能以连字符开头或结尾": labels.publishInvalidSubdomain,
+    "发布作品不存在": labels.publishSiteNotFound,
+    "发布版本不存在": labels.publishVersionNotFound,
+  };
+
+  const exact = exactMessages[normalized];
+  if (exact) return exact;
+
+  return normalized
+    .replaceAll("应用名称可用", labels.publishNameAvailable)
+    .replaceAll("应用名称已被占用", labels.publishNameTaken)
+    .replaceAll("应用名称至少需要 8 个字符", labels.publishPathHint)
+    .replaceAll("应用名称包含不合法的 URL 字符", labels.publishInvalidName)
+    .replaceAll("免费用户最多只能发布 1 个项目", labels.publishFreeLimitReached)
+    .replaceAll("仅 Pro 用户可以设置专属二级域名", labels.publishProOnlySubdomain)
+    .replaceAll("仅 Plus 和 Pro 用户可以设置专属二级域名", labels.publishProOnlySubdomain)
+    .replaceAll("仅订阅会员可以设置专属二级域名", labels.publishProOnlySubdomain)
+    .replaceAll("发布二级域名已设置，不能修改", labels.publishSubdomainFixed)
+    .replaceAll("二级域名可用", labels.publishSubdomainAvailable)
+    .replaceAll("二级域名已设置", labels.publishSubdomainFixedHint)
+    .replaceAll("二级域名已被占用", labels.publishSubdomainTaken)
+    .replaceAll("该二级域名已被占用", labels.publishSubdomainTaken)
+    .replaceAll("专属二级域名至少需要 3 个字符", labels.publishSubdomainHint)
+    .replaceAll("该二级域名为系统保留名称", labels.publishInvalidSubdomain)
+    .replaceAll("二级域名只能包含小写字母、数字和连字符，且不能以连字符开头或结尾", labels.publishInvalidSubdomain)
+    .replaceAll("发布作品不存在", labels.publishSiteNotFound)
+    .replaceAll("发布版本不存在", labels.publishVersionNotFound)
+    .replace(/\bapp name\b/gi, labels.publishPath)
+    .replace(/\bname is available\b/gi, labels.publishNameAvailable)
+    .replace(/\bname is already used\b/gi, labels.publishNameTaken);
 }
 
 function sleep(ms: number): Promise<void> {

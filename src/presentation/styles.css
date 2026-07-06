@@ -2130,6 +2130,36 @@ svg {
   padding: 18px;
 }
 
+.ob-publish-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius);
+  padding: 4px;
+  background: var(--ob-surface-sunken);
+}
+
+.ob-publish-tabs button {
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  border-radius: var(--ob-radius-sm);
+  background: transparent;
+  color: var(--ob-text-secondary);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ob-publish-tabs button:hover,
+.ob-publish-tabs button.is-active {
+  background: var(--ob-surface);
+  color: var(--ob-text);
+  box-shadow: var(--ob-shadow-sm);
+}
+
 .ob-publish-rule {
   border: 1px solid var(--ob-border);
   border-radius: var(--ob-radius);
@@ -2161,6 +2191,55 @@ svg {
 }
 
 .ob-publish-name-row button {
+  white-space: nowrap;
+}
+
+.ob-publish-url-row {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 4px;
+  max-width: 100%;
+}
+
+.ob-publish-url-row.is-pro {
+  column-gap: 4px;
+}
+
+.ob-publish-url-row .ob-publish-url-static {
+  display: inline;
+  color: var(--ob-text-secondary);
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 34px;
+  white-space: nowrap;
+}
+
+.ob-publish-url-row input {
+  flex: 0 0 17ch;
+  width: 17ch;
+  min-width: 120px;
+  height: 34px;
+  border-radius: var(--ob-radius);
+  padding: 0 9px;
+  background: var(--ob-surface);
+}
+
+.ob-publish-url-row.is-pro .ob-publish-subdomain-input {
+  flex-basis: 11ch;
+  width: 11ch;
+  min-width: 86px;
+}
+
+.ob-publish-url-row.is-pro .ob-publish-path-input {
+  flex-basis: 16ch;
+  width: 16ch;
+  min-width: 110px;
+}
+
+.ob-publish-url-row .ob-secondary-button {
+  margin-left: 8px;
+  min-height: 34px;
+  padding: 0 14px;
   white-space: nowrap;
 }
 
@@ -2235,6 +2314,8 @@ svg {
 .ob-published-site-list {
   display: grid;
   gap: 8px;
+  max-height: 360px;
+  overflow: auto;
 }
 
 .ob-published-site {
@@ -2278,12 +2359,41 @@ svg {
   white-space: nowrap;
 }
 
+.ob-published-empty {
+  margin: 0;
+  color: var(--ob-text-secondary);
+  font-size: 0.86rem;
+}
+
 @media (max-width: 560px) {
   .ob-publish-name-row {
     grid-template-columns: 1fr;
   }
 
   .ob-publish-name-row button {
+    justify-self: start;
+  }
+
+  .ob-publish-url-row,
+  .ob-publish-url-row.is-pro {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ob-publish-url-row input,
+  .ob-publish-url-row .ob-secondary-button {
+    border: 1px solid var(--ob-border-strong);
+    border-radius: var(--ob-radius);
+  }
+
+  .ob-publish-url-row .ob-publish-url-static {
+    line-height: 1.4;
+  }
+
+  .ob-publish-url-row .ob-secondary-button {
+    margin-left: 0;
+    margin-top: 8px;
     justify-self: start;
   }
 
