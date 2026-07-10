@@ -1,5 +1,9 @@
 <div align="center">
+<<<<<<< HEAD
   <img src="./public/logo.png" alt="Open Vibe Coding Logo" width="96" />
+=======
+  <img src="./public/logo.svg" alt="Open Vibe Coding Logo" width="96" />
+>>>>>>> origin/main
 
   # Open Vibe Coding
 
