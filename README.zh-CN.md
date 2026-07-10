@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./public/logo.png" alt="Open Vibe Coding Logo" width="96" />
+  <img src="./public/logo.svg" alt="Open Vibe Coding Logo" width="96" />
 
   # Open Vibe Coding
 
