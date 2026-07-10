@@ -59,6 +59,7 @@ export function ChatPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottomRef = useRef(true);
   const processedElementPromptRef = useRef<string | null>(null);
+  const composingRef = useRef(false);
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
   const normalizedSettings = useMemo(() => normalizeSettings(database.settings), [database.settings]);
   const officialModelEnabled = normalizedSettings.ai.apiType === "official";
@@ -363,8 +364,15 @@ export function ChatPanel({
             ref={textareaRef}
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
+                if (composingRef.current || event.nativeEvent.isComposing) return;
                 event.preventDefault();
                 event.currentTarget.form?.requestSubmit();
               }
