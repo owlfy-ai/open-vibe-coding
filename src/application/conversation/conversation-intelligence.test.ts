@@ -116,6 +116,110 @@ describe("ConversationIntelligenceService", () => {
     );
   });
 
+  it("auto-titles only a completed first turn with the default title", async () => {
+    const ids = new SequentialIdGenerator();
+    const session = new ApplicationSession(
+      createEmptyDatabase(1),
+      new AppDatabaseRepository(new InMemoryKeyValueStorage()),
+      ids,
+      new FixedClock(100),
+    );
+    const created = await session.createConversation();
+    if (!created.ok) throw new Error("create failed");
+    await session.appendConversationMessages(created.value, [
+      {
+        id: ids.next("message"),
+        role: "user",
+        createdAt: 1,
+        content: [{ type: "text", text: "Create a rock paper scissors game" }],
+      },
+      {
+        id: ids.next("message"),
+        role: "assistant",
+        createdAt: 2,
+        content: [{ type: "text", text: "The game is ready to play." }],
+      },
+    ]);
+    const model = new TextModel(["Rock Paper Scissors Game"]);
+    const service = new ConversationIntelligenceService(
+      session,
+      model,
+      ids,
+      new FixedClock(100),
+    );
+
+    expect(await service.generateInitialTitle(created.value)).toEqual({
+      ok: true,
+      value: "Rock Paper Scissors Game",
+    });
+    expect(session.snapshot().conversations[created.value].conversation.title).toBe(
+      "Rock Paper Scissors Game",
+    );
+  });
+
+  it("does not auto-title conversations with a later user turn or a custom title", async () => {
+    const ids = new SequentialIdGenerator();
+    const session = new ApplicationSession(
+      createEmptyDatabase(1),
+      new AppDatabaseRepository(new InMemoryKeyValueStorage()),
+      ids,
+      new FixedClock(100),
+    );
+    const created = await session.createConversation();
+    if (!created.ok) throw new Error("create failed");
+    await session.appendConversationMessages(created.value, [
+      {
+        id: ids.next("message"),
+        role: "user",
+        createdAt: 1,
+        content: [{ type: "text", text: "Build a timer" }],
+      },
+      {
+        id: ids.next("message"),
+        role: "assistant",
+        createdAt: 2,
+        content: [{ type: "text", text: "Done." }],
+      },
+      {
+        id: ids.next("message"),
+        role: "user",
+        createdAt: 3,
+        content: [{ type: "text", text: "Add sound effects" }],
+      },
+    ]);
+    const model = new TextModel(["Timer"]);
+    const service = new ConversationIntelligenceService(
+      session,
+      model,
+      ids,
+      new FixedClock(100),
+    );
+
+    expect(await service.generateInitialTitle(created.value)).toEqual({ ok: true, value: null });
+    expect(model.requests).toHaveLength(0);
+
+    const renamed = await session.createConversation();
+    if (!renamed.ok) throw new Error("create failed");
+    await session.appendConversationMessages(renamed.value, [
+      {
+        id: ids.next("message"),
+        role: "user",
+        createdAt: 4,
+        content: [{ type: "text", text: "Build a clock" }],
+      },
+      {
+        id: ids.next("message"),
+        role: "assistant",
+        createdAt: 5,
+        content: [{ type: "text", text: "Done." }],
+      },
+    ]);
+    await session.updateConversation(renamed.value, { title: "My clock" });
+    expect(await service.generateInitialTitle(renamed.value)).toEqual({ ok: true, value: null });
+    expect(session.snapshot().conversations[renamed.value].conversation.title).toBe("My clock");
+    expect(model.requests).toHaveLength(0);
+  });
+
   it("requires enough history before compression", async () => {
     const ids = new SequentialIdGenerator();
     const session = new ApplicationSession(

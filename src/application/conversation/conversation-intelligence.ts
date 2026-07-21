@@ -1,5 +1,6 @@
 import {
   textOf,
+  type Conversation,
   type ConversationId,
   type ConversationMessage,
   type UserMessage,
@@ -86,6 +87,40 @@ export class ConversationIntelligenceService {
     return saved.ok ? ok(title) : err({ code: "session-error", message: saved.error.message });
   }
 
+  async generateInitialTitle(
+    conversationId: ConversationId,
+    signal = new AbortController().signal,
+  ): Promise<Result<string | null, ConversationIntelligenceError>> {
+    const persisted = this.session.snapshot().conversations[conversationId];
+    if (!persisted) return this.notFound(conversationId);
+    if (!canAutoTitleInitialConversation(persisted.conversation)) return ok(null);
+
+    const source = serializeMessages(
+      persisted.conversation.messages
+        .filter((message) => message.role === "user" || message.role === "assistant")
+        .slice(0, 6),
+      240,
+    );
+    if (!source) return ok(null);
+    const title = sanitizeTitle(
+      await collectModelText(
+        this.model,
+        "Create a short, descriptive title for this first completed coding task in the user's language. Return only the title, without quotation marks, Markdown, or ending punctuation.",
+        [this.textMessage(source)],
+        signal,
+      ),
+    );
+    if (!title) return err({ code: "empty-result", message: "The model returned an invalid title" });
+
+    // The user may rename the conversation or start another turn while the
+    // title request is in flight. Check again before replacing anything.
+    const latest = this.session.snapshot().conversations[conversationId];
+    if (!latest) return this.notFound(conversationId);
+    if (!canAutoTitleInitialConversation(latest.conversation)) return ok(null);
+    const saved = await this.session.updateConversation(conversationId, { title });
+    return saved.ok ? ok(title) : err({ code: "session-error", message: saved.error.message });
+  }
+
   private textMessage(text: string): UserMessage {
     return {
       id: this.ids.next("message"),
@@ -138,4 +173,10 @@ function sanitizeTitle(value: string): string {
     .replace(/[.!。！]+$/, "")
     .slice(0, 80)
     .trim();
+}
+
+function canAutoTitleInitialConversation(conversation: Conversation): boolean {
+  return !conversation.title?.trim() &&
+    conversation.messages.filter((message) => message.role === "user").length === 1 &&
+    conversation.messages.some((message) => message.role === "assistant");
 }

@@ -194,7 +194,7 @@ export function ChatPanel({
     if (!(await ensureBackendLoginForCurrentRequest())) return;
     setStream("");
     const run = running ? services.agent.interruptAndRun.bind(services.agent) : services.agent.run.bind(services.agent);
-    await run(conversation.conversation.id, content, {
+    const result = await run(conversation.conversation.id, content, {
       hiddenContext: options.hiddenContext,
       observer: {
         onStateChange: setRunState,
@@ -204,6 +204,9 @@ export function ChatPanel({
       },
     });
     setStream("");
+    if (result.ok && result.value.state.status === "completed") {
+      void services.conversations.generateInitialTitle(conversation.conversation.id).catch(() => undefined);
+    }
   }
 
   async function ensureBackendLoginForCurrentRequest(pending?: PendingChatSubmit): Promise<boolean> {
