@@ -657,6 +657,119 @@ svg {
   margin-bottom: 0;
 }
 
+.ob-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ob-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ob-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ob-markdown p {
+  margin: 0 0 10px;
+  white-space: normal;
+}
+
+.ob-markdown h1,
+.ob-markdown h2,
+.ob-markdown h3,
+.ob-markdown h4,
+.ob-markdown h5,
+.ob-markdown h6 {
+  margin: 18px 0 8px;
+  color: var(--ob-text);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.ob-markdown h1 { font-size: 1.3rem; }
+.ob-markdown h2 { font-size: 1.16rem; }
+.ob-markdown h3 { font-size: 1.04rem; }
+.ob-markdown h4,
+.ob-markdown h5,
+.ob-markdown h6 { font-size: 0.95rem; }
+
+.ob-markdown ul,
+.ob-markdown ol {
+  margin: 0 0 10px;
+  padding-left: 1.45rem;
+}
+
+.ob-markdown li {
+  margin: 3px 0;
+}
+
+.ob-markdown li > p {
+  margin: 0;
+}
+
+.ob-markdown blockquote {
+  margin: 10px 0;
+  border-left: 3px solid var(--ob-border-strong);
+  padding: 3px 0 3px 12px;
+  color: var(--ob-text-secondary);
+}
+
+.ob-markdown code {
+  border-radius: 4px;
+  padding: 0.12em 0.35em;
+  background: var(--ob-surface-subtle);
+  font-family: var(--ob-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.88em;
+}
+
+.ob-markdown pre {
+  margin: 10px 0;
+  overflow: auto;
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius-sm);
+  padding: 12px;
+  background: var(--ob-surface-sunken);
+  line-height: 1.55;
+}
+
+.ob-markdown pre code {
+  display: block;
+  min-width: max-content;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 0.82rem;
+}
+
+.ob-markdown a {
+  color: var(--ob-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ob-markdown table {
+  display: block;
+  max-width: 100%;
+  margin: 10px 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.ob-markdown th,
+.ob-markdown td {
+  border: 1px solid var(--ob-border);
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ob-markdown th {
+  background: var(--ob-surface-subtle);
+  font-weight: 600;
+}
+
 .ob-message-user {
   align-self: flex-end;
   max-width: 80%;
