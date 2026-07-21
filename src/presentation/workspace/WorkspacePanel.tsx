@@ -353,7 +353,7 @@ export function WorkspacePanel({
         </div>
       ) : (
         <SandpackErrorBoundary
-          key={revision}
+          resetKey={revision}
           renderFallback={(error, retry) => (
             <PreviewErrorCard
               title={t.workspace.previewErrorTitle}
