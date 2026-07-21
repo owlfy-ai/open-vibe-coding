@@ -55,11 +55,15 @@ export function PreviewErrorCard({
 interface BoundaryProps {
   /**
    * Render the fallback for a caught error. Receives a `retry` callback that
-   * clears the error and remounts the children. Auto-recovery on data change
-   * is handled by the parent keying this boundary on `revision`.
+   * clears the error and remounts the children.
    */
   readonly renderFallback: (error: Error, retry: () => void) => ReactNode;
   readonly children: ReactNode;
+  /**
+   * Clears a previously caught render error when the project changes, without
+   * remounting a healthy Sandpack runtime for every file revision.
+   */
+  readonly resetKey?: string | number;
 }
 
 interface BoundaryState {
@@ -83,6 +87,12 @@ export class SandpackErrorBoundary extends Component<BoundaryProps, BoundaryStat
   override componentDidCatch(error: Error, _info: ErrorInfo): void {
     // Intentionally not re-thrown — surfacing to the console is enough.
     console.error("[SandpackErrorBoundary] preview render failed:", error);
+  }
+
+  override componentDidUpdate(previousProps: BoundaryProps): void {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
   }
 
   private readonly retry = (): void => {

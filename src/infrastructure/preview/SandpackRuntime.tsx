@@ -395,7 +395,13 @@ export function SandpackRuntime({
         theme={theme}
         template={template}
         files={runtimeFiles}
-        options={{ activeFile }}
+        options={{
+          activeFile,
+          // Agent edits can arrive in quick succession. Let Sandpack settle
+          // them into one rebuild instead of repeatedly restarting Vite.
+          recompileMode: "delayed",
+          recompileDelay: 500,
+        }}
         style={{ height: "100%" }}
       >
         <SandpackBridge
