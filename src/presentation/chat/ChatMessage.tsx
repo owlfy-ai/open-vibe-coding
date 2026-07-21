@@ -1,5 +1,6 @@
 import type { ConversationMessage, ToolMessage } from "@/domain/conversation";
 import { ToolCallCard } from "./ToolCallCard";
+import { MarkdownContent } from "./MarkdownContent";
 import { Icon } from "../icons";
 import { useT } from "../i18n";
 
@@ -14,7 +15,11 @@ export function ChatMessage({
   return (
     <article className={`ob-message ob-message-${message.role}`}>
       {message.content.map((part, index) => {
-        if (part.type === "text") return <p key={index}>{part.text}</p>;
+        if (part.type === "text") {
+          return message.role === "assistant"
+            ? <MarkdownContent key={index} content={part.text} />
+            : <p key={index}>{part.text}</p>;
+        }
         if (part.type === "reasoning") {
           return (
             <details className="ob-reasoning" key={index}>

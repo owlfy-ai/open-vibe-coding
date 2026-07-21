@@ -10,6 +10,7 @@ import { useBackendAccount } from "../auth/BackendAuthGate";
 import { interpolate, useT, type Translation } from "../i18n";
 import { Icon } from "../icons";
 import { ChatMessage } from "./ChatMessage";
+import { MarkdownContent } from "./MarkdownContent";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
@@ -292,7 +293,7 @@ export function ChatPanel({
         ) : (
           grouped.map((message) => <ChatMessage key={message.id} message={message} toolResults={toolResults} />)
         )}
-        {stream ? <article className="ob-message ob-message-assistant"><p>{stream}</p></article> : null}
+        {stream ? <article className="ob-message ob-message-assistant"><MarkdownContent content={stream} /></article> : null}
         {running && !stream ? <div className="ob-running">{interpolate(t.chat.running, { status: runState.status.replaceAll("-", " ") })}</div> : null}
         {runState.status === "failed" ? (
           <article className="ob-message ob-message-assistant is-error">
