@@ -8,6 +8,7 @@ import { interpolate, useT, type Translation } from "../i18n";
 import { Icon } from "../icons";
 import { ChatMessage } from "./ChatMessage";
 import { MarkdownContent } from "./MarkdownContent";
+import { ReasoningBlock } from "./ReasoningBlock";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
@@ -43,6 +44,8 @@ export function ChatPanel({
   const [compactMessage, setCompactMessage] = useState<string | null>(null);
   const [runState, setRunState] = useState<AgentRunState>({ status: "idle" });
   const [stream, setStream] = useState("");
+  const [reasoningStream, setReasoningStream] = useState("");
+  const [reasoningOpen, setReasoningOpen] = useState(true);
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottomRef = useRef(true);
@@ -74,6 +77,8 @@ export function ChatPanel({
     if (assistantCount === seenAssistantCount.current) return;
     seenAssistantCount.current = assistantCount;
     setStream("");
+    setReasoningStream("");
+    setReasoningOpen(true);
   }, [assistantCount]);
 
   useEffect(() => {
@@ -84,7 +89,7 @@ export function ChatPanel({
   useLayoutEffect(() => {
     if (!stickToBottomRef.current) return;
     scrollMessagesToBottom(messagesRef.current);
-  }, [conversation?.conversation.id, grouped.length, messages.length, running, stream]);
+  }, [conversation?.conversation.id, grouped.length, messages.length, running, stream, reasoningStream]);
 
   useLayoutEffect(() => {
     resizeComposerTextarea(textareaRef.current);
@@ -143,17 +148,29 @@ export function ChatPanel({
   ) {
     if (!conversation || !services) return;
     setStream("");
+    setReasoningStream("");
+    setReasoningOpen(true);
     const run = running ? services.agent.interruptAndRun.bind(services.agent) : services.agent.run.bind(services.agent);
     const result = await run(conversation.conversation.id, content, {
       hiddenContext: options.hiddenContext,
       observer: {
         onStateChange: setRunState,
         onDelta: ({ type, value }) => {
-          if (type === "text") setStream((current) => current + value);
+          if (type === "reasoning") {
+            setReasoningStream((current) => current + value);
+            return;
+          }
+          if (type === "text") {
+            // Collapse reasoning as soon as answer tokens start arriving.
+            setReasoningOpen(false);
+            setStream((current) => current + value);
+          }
         },
       },
     });
     setStream("");
+    setReasoningStream("");
+    setReasoningOpen(true);
     if (result.ok && result.value.state.status === "completed") {
       void services.conversations.generateInitialTitle(conversation.conversation.id).catch(() => undefined);
     }
@@ -213,8 +230,21 @@ export function ChatPanel({
         ) : (
           grouped.map((message) => <ChatMessage key={message.id} message={message} toolResults={toolResults} />)
         )}
-        {stream ? <article className="ob-message ob-message-assistant"><MarkdownContent content={stream} /></article> : null}
-        {running && !stream ? <div className="ob-running">{interpolate(t.chat.running, { status: runState.status.replaceAll("-", " ") })}</div> : null}
+        {reasoningStream || stream ? (
+          <article className="ob-message ob-message-assistant">
+            {reasoningStream ? (
+              <ReasoningBlock
+                text={reasoningStream}
+                open={reasoningOpen}
+                onOpenChange={setReasoningOpen}
+              />
+            ) : null}
+            {stream ? <MarkdownContent content={stream} /> : null}
+          </article>
+        ) : null}
+        {running && !stream && !reasoningStream ? (
+          <div className="ob-running">{interpolate(t.chat.running, { status: runState.status.replaceAll("-", " ") })}</div>
+        ) : null}
         {runState.status === "failed" ? (
           <article className="ob-message ob-message-assistant is-error">
             <p>{agentFailureTitle(runState.error.code, t)}: {runState.error.message}</p>
