@@ -27,6 +27,8 @@ export interface SandpackBridgeProps {
   readonly onFileChange: (path: string, content: string) => void;
   readonly editDebounceMs?: number;
   readonly syncEditorChanges?: boolean;
+  /** Sandpack template name — used to settle ready for static clients. */
+  readonly template?: string;
   /** Called when Vite finished booting (or returned to idle after a restart). */
   readonly onBootSettled?: () => void;
   /** Called when a fatal Sandpack infrastructure fault is detected.
@@ -45,10 +47,11 @@ export function SandpackBridge({
   onFileChange,
   editDebounceMs = 400,
   syncEditorChanges = true,
+  template = "vite-react-ts",
   onBootSettled,
   onInfrastructureFault,
 }: SandpackBridgeProps) {
-  const { sandpack } = useSandpack();
+  const { sandpack, listen } = useSandpack();
   const { files, status, error } = sandpack;
   const currentFile = sandpack.activeFile;
   const code = files[currentFile]?.code;
@@ -142,14 +145,37 @@ export function SandpackBridge({
       coordinator.markFailed(target, "Sandpack compilation timed out");
       return;
     }
-    if (status === "done") {
+    // Provider status is never "done" in current sandpack-react (only
+    // initial/running/idle/timeout). Idle means no clients yet or after
+    // teardown — for static templates this is a valid settled state.
+    if (status === "idle" || status === "done") {
       coordinator.markReady(target);
       return;
     }
-    // Do not optimistically mark ready when Sandpack has no error yet — Vite
-    // may still be booting, and an early ready hides later infrastructure faults.
     return undefined;
   }, [active, conversationId, coordinator, error, revision, status]);
+
+  // Bundler "done" is the real compile-finished signal while provider status
+  // stays "running" (sandpack-react never sets status to "done").
+  useEffect(() => {
+    if (!active) return undefined;
+    const target = { conversationId, revision };
+    const staticLike = template === "static" || template === "vanilla" || template === "vanilla-ts";
+    return listen((message) => {
+      if (message.type === "start") {
+        coordinator.markCompiling(target);
+        return;
+      }
+      if (message.type === "done" && message.compilatonError !== true) {
+        coordinator.markReady(target);
+        return;
+      }
+      // Pure static clients may never emit a compile "done"; connected is enough.
+      if (staticLike && message.type === "connected") {
+        coordinator.markReady(target);
+      }
+    });
+  }, [active, conversationId, coordinator, listen, revision, template]);
 
   useEffect(() => {
     if (active && error) coordinator.markFailed({ conversationId, revision }, error.message);

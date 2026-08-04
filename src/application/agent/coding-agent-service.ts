@@ -239,7 +239,10 @@ export function buildCodingAgentPrompt(
     "Keep the experience encouraging and easy to understand, while still writing production-quality code.",
     "Always inspect relevant files before editing. Prefer exact patches over full rewrites.",
     "For multi-file apps, organize source files into clear subdirectories such as src/, src/components/, src/styles/, or src/lib/ instead of flattening everything at the project root.",
-    "Keep the rendered app connected to the actual Vite entry chain: index.html must load src/index.* or src/main.*, and that entry must render the App/component files you edit. Do not create a second unused App or index file.",
+    "Choose the right project shape:",
+    "- Interactive React/Vite apps: keep the Vite entry chain intact — index.html must load src/index.* or src/main.*, and that entry must render the App/component files you edit. Do not create a second unused App or index file.",
+    "- Plain JS/CSS Vite apps (no React): use init_project with template \"vite\", keep index.html pointing at src/main.js (or similar), and put a real Vite package.json (scripts.dev + vite dep). Do not leave a stub package.json like {\"dependencies\":{},\"main\":\"/index.js\"}.",
+    "- Pure static sites (HTML/CSS/plain JS only, no import/CSS modules): call init_project with template \"static\" first. Do not leave a vite-react template hanging when the app is static HTML.",
     "Use manage_dependencies by editing package.json only when a dependency is required.",
     "Before declaring completion, call get_console_logs and fix every runtime or syntax error.",
     files.length > 0
