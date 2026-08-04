@@ -399,9 +399,19 @@ export function WorkspacePanel({
                       />
                     </div>
                     <div className={showConsole ? "ob-preview-console is-open" : "ob-preview-console"} aria-hidden={!showConsole}>
-                      {previewState?.status === "failed" ? (
+                      {previewState?.status === "failed" && previewState.error ? (
                         <pre className="ob-preview-console-error">{previewState.error}</pre>
                       ) : null}
+                      {previewState?.logs
+                        ?.filter((entry) => entry.method === "error" || entry.method === "warn")
+                        .map((entry) => (
+                          <pre
+                            key={entry.id}
+                            className={entry.method === "error" ? "ob-preview-console-error" : "ob-preview-console-warn"}
+                          >
+                            {entry.data.map((value) => formatPreviewConsoleValue(value)).join(" ")}
+                          </pre>
+                        ))}
                       <SandpackConsole showSyntaxError />
                     </div>
                   </div>
@@ -733,4 +743,14 @@ function defaultFileContent(path: string): string {
   if (/\.json$/i.test(path)) return "{}\n";
   if (/\.html?$/i.test(path)) return "<!doctype html>\n<html>\n  <head></head>\n  <body></body>\n</html>\n";
   return "";
+}
+
+function formatPreviewConsoleValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return `${value.name}: ${value.message}`;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

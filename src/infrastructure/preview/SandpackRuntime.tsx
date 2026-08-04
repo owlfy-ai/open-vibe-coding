@@ -7,53 +7,17 @@ import {
 import type { PreviewCoordinator, PreviewElementPromptRequest, PreviewElementSelection } from "@/application/preview";
 import { SandpackBridge } from "./SandpackBridge";
 import { instrumentPreviewSources, PREVIEW_SOURCE_ATTR, type RuntimeFiles } from "./source-instrumentation";
+import {
+  PREVIEW_ERROR_CAPTURE_MARKER,
+  PREVIEW_ERROR_SOURCE,
+  buildPreviewErrorCaptureScript,
+  injectReactErrorBoundary,
+} from "./preview-error-instrumentation";
 
-const PREVIEW_ERROR_SOURCE = "open-vibe-coding.preview-error";
 const PREVIEW_SELECT_SOURCE = "open-vibe-coding.preview-select";
 const PREVIEW_SELECT_COMMAND_SOURCE = "open-vibe-coding.preview-select-command";
-const PREVIEW_ERROR_CAPTURE_MARKER = "open-vibe-coding-preview-error-capture";
 const PREVIEW_SELECT_CAPTURE_MARKER = "open-vibe-coding-preview-select-capture";
-const PREVIEW_ERROR_CAPTURE_SCRIPT = `(() => {
-  const source = ${JSON.stringify(PREVIEW_ERROR_SOURCE)};
-  const send = (payload) => {
-    try {
-      window.parent.postMessage({ source, ...payload }, "*");
-    } catch {
-      /* noop */
-    }
-  };
-  window.onerror = (message, filename, lineno, colno, error) => {
-    send({
-      kind: "error",
-      message: String(message || "Script error"),
-      filename,
-      lineno,
-      colno,
-      stack: error && error.stack ? String(error.stack) : "",
-    });
-    return true;
-  };
-  window.addEventListener("error", (event) => {
-    event.preventDefault();
-    send({
-      kind: "error",
-      message: event.message || (event.error && event.error.message) || "Script error",
-      filename: event.filename,
-      lineno: event.lineno,
-      colno: event.colno,
-      stack: event.error && event.error.stack ? String(event.error.stack) : "",
-    });
-  });
-  window.addEventListener("unhandledrejection", (event) => {
-    event.preventDefault();
-    const reason = event.reason;
-    send({
-      kind: "unhandledrejection",
-      message: reason && reason.message ? String(reason.message) : String(reason || "Unhandled promise rejection"),
-      stack: reason && reason.stack ? String(reason.stack) : "",
-    });
-  });
-})();`;
+const PREVIEW_ERROR_CAPTURE_SCRIPT = buildPreviewErrorCaptureScript(PREVIEW_ERROR_SOURCE);
 
 export interface PreviewElementPromptLabels {
   readonly dialogLabel: string;
@@ -297,7 +261,10 @@ export function SandpackRuntime({
     elementPromptLabels.cancel,
   ].join("\u0000");
   const runtimeFiles = useMemo<RuntimeFiles>(
-    () => injectPreviewScripts(instrumented.files, elementPromptLabels),
+    () => injectPreviewScripts(
+      injectReactErrorBoundary(instrumented.files),
+      elementPromptLabels,
+    ),
     // Keep Sandpack files stable across parent renders. Rebuilding this object
     // restarts the preview iframe, so depend on label values rather than object identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -494,8 +461,16 @@ function formatPreviewError(error: PreviewErrorMessage): string {
     typeof error.lineno === "number" ? `:${error.lineno}` : "",
     typeof error.colno === "number" ? `:${error.colno}` : "",
   ].join("");
+  const kindLabel =
+    error.kind === "unhandledrejection"
+      ? "Unhandled promise rejection"
+      : error.kind === "react"
+        ? "React render error"
+        : error.kind === "console.error"
+          ? "Console error"
+          : "Runtime error";
   return [
-    error.kind === "unhandledrejection" ? "Unhandled promise rejection" : "Runtime error",
+    kindLabel,
     location,
     error.message,
     error.stack,

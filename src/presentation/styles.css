@@ -1454,6 +1454,19 @@ svg {
   word-break: break-word;
 }
 
+.ob-preview-console-warn {
+  margin: 0;
+  border-bottom: 1px solid var(--ob-border);
+  padding: 10px 14px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  color: #92400e;
+  font-family: var(--ob-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .ob-preview-console .sp-console {
   height: 100%;
   min-height: 0;
