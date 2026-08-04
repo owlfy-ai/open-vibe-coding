@@ -32,6 +32,7 @@ export type AgentRunEvent =
   | { readonly type: "stream-started" }
   | { readonly type: "tools-requested"; readonly count: number }
   | { readonly type: "tools-completed" }
+  | { readonly type: "next-iteration" }
   | { readonly type: "complete" }
   | { readonly type: "cancel" }
   | { readonly type: "fail"; readonly error: AgentRunError };
@@ -62,6 +63,9 @@ export function transitionAgentRun(
     };
   }
   if (state.status === "executing-tools" && event.type === "tools-completed") {
+    return { status: "preparing", runId: state.runId, iteration: state.iteration + 1 };
+  }
+  if (state.status === "streaming" && event.type === "next-iteration") {
     return { status: "preparing", runId: state.runId, iteration: state.iteration + 1 };
   }
   if ((state.status === "streaming" || state.status === "preparing") && event.type === "complete") {

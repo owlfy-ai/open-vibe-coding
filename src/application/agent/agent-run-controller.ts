@@ -118,6 +118,9 @@ export class AgentRunController {
           }
           if (consoleErrorsNeedFix) {
             messages.push(this.hiddenConsoleFixRequest());
+            // Text-only responses leave us in "streaming"; reset to preparing
+            // before looping or the next stream-started transition will throw.
+            this.change(transitionAgentRun(this.state, { type: "next-iteration" }), observer);
             continue;
           }
 

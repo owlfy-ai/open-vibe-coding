@@ -16,8 +16,11 @@ describe("agent run state machine", () => {
     state = transitionAgentRun(state, { type: "tools-completed" });
     expect(state).toEqual({ status: "preparing", runId, iteration: 2 });
     state = transitionAgentRun(state, { type: "stream-started" });
+    state = transitionAgentRun(state, { type: "next-iteration" });
+    expect(state).toEqual({ status: "preparing", runId, iteration: 3 });
+    state = transitionAgentRun(state, { type: "stream-started" });
     state = transitionAgentRun(state, { type: "complete" });
-    expect(state).toEqual({ status: "completed", runId, iterations: 2 });
+    expect(state).toEqual({ status: "completed", runId, iterations: 3 });
   });
 
   it("rejects illegal transitions", () => {
