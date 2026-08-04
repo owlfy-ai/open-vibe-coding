@@ -3,14 +3,16 @@ import {
   SandpackConsole,
   SandpackLayout,
   SandpackPreview,
-  type SandpackPredefinedTemplate,
 } from "@codesandbox/sandpack-react";
 import type { PersistedConversation } from "@/infrastructure/persistence";
 import { isBackendAuthRequiredError, type PublishedSite } from "@/infrastructure/backend";
 import type { PreviewElementPromptRequest, PreviewElementSelection, PreviewRevisionState } from "@/application/preview";
 import {
+  enrichPreviewFilesForTemplate,
   findPackageJsonError,
+  needsVitePackageRepair,
   PreviewErrorCard,
+  resolvePreviewTemplate,
   SandpackErrorBoundary,
   SandpackRuntime,
 } from "@/infrastructure/preview";
@@ -118,6 +120,43 @@ export function WorkspacePanel({
       ),
     [conversation.project.files],
   );
+  const previewTemplate = useMemo(
+    () => resolvePreviewTemplate(files, conversation.conversation.template),
+    [conversation.conversation.template, files],
+  );
+  const previewFiles = useMemo(
+    () => enrichPreviewFilesForTemplate(files, previewTemplate),
+    [files, previewTemplate],
+  );
+  // Repair sticky historical sessions: wrong template + stub package.json.
+  useEffect(() => {
+    if (!active) return;
+    const ops: { type: "write-file"; path: string; content: string }[] = [];
+    if (previewTemplate !== conversation.conversation.template
+      && (previewTemplate === "static" || previewTemplate === "vite")) {
+      void runtime.session.updateConversation(conversation.conversation.id, {
+        template: previewTemplate,
+      });
+    }
+    if (previewTemplate === "vite" && needsVitePackageRepair(files)) {
+      const repaired = previewFiles["/package.json"]?.code;
+      const current = files["/package.json"]?.code ?? files["package.json"]?.code;
+      if (repaired && repaired !== current) {
+        ops.push({ type: "write-file", path: "package.json", content: repaired });
+      }
+    }
+    if (ops.length > 0) {
+      void runtime.session.applyProjectOperations(conversation.conversation.id, ops);
+    }
+  }, [
+    active,
+    conversation.conversation.id,
+    conversation.conversation.template,
+    files,
+    previewFiles,
+    previewTemplate,
+    runtime.session,
+  ]);
   // A malformed package.json would crash Sandpack's provider at render time
   // (JSON.parse in addPackageJSONIfNeeded). Detect it up front so we never
   // mount the crashing provider — isolating the failure to this session.
@@ -549,8 +588,8 @@ export function WorkspacePanel({
             active={active}
             cachedReady={loadedPreviewRevision === revision}
             theme={theme}
-            template={conversation.conversation.template as SandpackPredefinedTemplate}
-            files={files}
+            template={previewTemplate}
+            files={previewFiles}
             activeFile={activeFile.startsWith("/") ? activeFile : `/${activeFile}`}
             coordinator={preview}
             onFileChange={updateFile}

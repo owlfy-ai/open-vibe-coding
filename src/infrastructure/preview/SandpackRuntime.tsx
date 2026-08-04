@@ -478,7 +478,7 @@ export function SandpackRuntime({
   return (
     <div className="ob-sandpack-runtime-host" ref={hostRef}>
       <SandpackProvider
-        key={`${conversationId}-${generation}`}
+        key={`${conversationId}-${template}-${generation}-${filesFingerprint}`}
         theme={theme}
         template={template}
         files={runtimeFiles}
@@ -489,6 +489,11 @@ export function SandpackRuntime({
           recompileMode: "delayed",
           recompileDelay: PREVIEW_RECOMPILE_DELAY_MS,
         }}
+        customSetup={
+          template === "vite"
+            ? { entry: "/index.html" }
+            : undefined
+        }
         style={{ height: "100%" }}
       >
         <SandpackBridge
@@ -500,6 +505,7 @@ export function SandpackRuntime({
           coordinator={coordinator}
           onFileChange={onFileChange}
           syncEditorChanges={syncEditorChanges}
+          template={template}
           onBootSettled={handleBootSettled}
           onInfrastructureFault={handleInfrastructureFault}
         />
