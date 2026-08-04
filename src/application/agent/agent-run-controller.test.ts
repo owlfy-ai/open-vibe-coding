@@ -290,4 +290,87 @@ describe("AgentRunController", () => {
       content: [{ type: "text", text: "Ready" }],
     });
   });
+
+  it("re-enters preparing after a text-only turn when console errors still need fixing", async () => {
+    const ids = new SequentialIdGenerator();
+    const writeCallId = ids.next("tool-call");
+    const fixCallId = ids.next("tool-call");
+    const model = new ScriptedModel([
+      [
+        { type: "tool-call", callId: writeCallId, toolName: "write_file", input: { path: "src/App.tsx", content: "bad" } },
+        { type: "finish", reason: "tool-calls" },
+      ],
+      [
+        { type: "text-delta", delta: "Done" },
+        { type: "finish", reason: "stop" },
+      ],
+      // Text-only acknowledgment after console errors — previously left state as
+      // "streaming" and crashed on the next stream-started transition.
+      [
+        { type: "text-delta", delta: "I see the crash, fixing next." },
+        { type: "finish", reason: "stop" },
+      ],
+      [
+        { type: "tool-call", callId: fixCallId, toolName: "patch_file", input: { path: "src/App.tsx", patches: [] } },
+        { type: "finish", reason: "tool-calls" },
+      ],
+      [
+        { type: "text-delta", delta: "Fixed" },
+        { type: "finish", reason: "stop" },
+      ],
+      [
+        { type: "text-delta", delta: "Ready" },
+        { type: "finish", reason: "stop" },
+      ],
+    ]);
+    let consoleChecks = 0;
+    const mutationTool: AgentTool = {
+      definition: { name: "write_file", description: "Write", inputSchema: {} },
+      execute: vi.fn(async () => ({ ok: true as const, value: { revision: 2, changes: [] } })),
+    };
+    const patchTool: AgentTool = {
+      definition: { name: "patch_file", description: "Patch", inputSchema: {} },
+      execute: vi.fn(async () => ({ ok: true as const, value: { revision: 3, changes: [] } })),
+    };
+    const consoleTool: AgentTool = {
+      definition: { name: "get_console_logs", description: "Console", inputSchema: {} },
+      execute: vi.fn(async () => {
+        consoleChecks += 1;
+        return {
+          ok: true as const,
+          value: {
+            revision: consoleChecks === 1 ? 2 : 3,
+            status: "ready",
+            logs: consoleChecks === 1
+              ? [{ method: "error", data: ["An error occurred in the <App> component."] }]
+              : [],
+          },
+        };
+      }),
+    };
+    const controller = new AgentRunController(
+      model,
+      new ToolRegistry([mutationTool, patchTool, consoleTool]),
+      ids,
+      new FixedClock(100),
+    );
+    const states: string[] = [];
+    const result = await controller.run([], {
+      onStateChange: (state) => states.push(state.status),
+    });
+
+    expect(result.state).toMatchObject({ status: "completed" });
+    expect(states).not.toContain("failed");
+    expect(patchTool.execute).toHaveBeenCalledOnce();
+    expect(result.messages.some((message) => (
+      message.role === "user" &&
+      message.content.some((block) => (
+        block.type === "text" && block.text.includes("preview console still reports errors")
+      ))
+    ))).toBe(true);
+    expect(result.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: [{ type: "text", text: "Ready" }],
+    });
+  });
 });

@@ -118,6 +118,9 @@ export class AgentRunController {
           }
           if (consoleErrorsNeedFix) {
             messages.push(this.hiddenConsoleFixRequest());
+            // Text-only responses leave us in "streaming"; reset to preparing
+            // before looping or the next stream-started transition will throw.
+            this.change(transitionAgentRun(this.state, { type: "next-iteration" }), observer);
             continue;
           }
 
@@ -185,7 +188,7 @@ export class AgentRunController {
         return this.cancelled(messages, observer);
       }
       const failure = {
-        code: "agent-run-failed",
+        code: agentErrorCode(error),
         message: error instanceof Error ? error.message : "Agent run failed",
         retryable: true,
       };
@@ -266,6 +269,15 @@ export class AgentRunController {
     this.state = state;
     observer.onStateChange?.(state);
   }
+}
+
+function agentErrorCode(error: unknown): string {
+  if (typeof error !== "object" || error === null) return "agent-run-failed";
+  const code = "code" in error ? String((error as { code: unknown }).code) : "";
+  const status = "status" in error ? Number((error as { status: unknown }).status) : undefined;
+  if (code) return code;
+  if (status === 401) return "backend-auth-required";
+  return "agent-run-failed";
 }
 
 function isProjectMutationTool(toolName: string): boolean {
