@@ -91,7 +91,7 @@ export function WorkspacePanel({
   const previewStatus = previewState?.status ?? null;
   const previewLoading = active
     && mode === "preview"
-    && loadedPreviewRevision !== revision
+    && previewStatus !== "ready"
     && previewStatus !== "failed";
   const elementPromptLabels = useMemo(
     () => ({
@@ -389,7 +389,8 @@ export function WorkspacePanel({
       if (settled) return;
       settled = true;
       setLoadedPreviewRevision(revision);
-      preview.markReady({ conversationId, revision });
+      // Do not markReady here. Iframe "load" fires before Vite finishes booting,
+      // and an early ready hides Sandpack infrastructure faults from the agent.
     };
     const markLoaded = () => {
       if (settled) return;

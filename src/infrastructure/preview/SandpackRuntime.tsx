@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   SandpackProvider,
   type SandpackPredefinedTemplate,
   type SandpackThemeProp,
 } from "@codesandbox/sandpack-react";
 import type { PreviewCoordinator, PreviewElementPromptRequest, PreviewElementSelection } from "@/application/preview";
-import { SandpackBridge } from "./SandpackBridge";
+import { SandpackBridge, classifySandpackConsoleEntry } from "./SandpackBridge";
 import { instrumentPreviewSources, PREVIEW_SOURCE_ATTR, type RuntimeFiles } from "./source-instrumentation";
 import {
   PREVIEW_ERROR_CAPTURE_MARKER,
@@ -13,6 +13,14 @@ import {
   buildPreviewErrorCaptureScript,
   injectReactErrorBoundary,
 } from "./preview-error-instrumentation";
+import {
+  fingerprintPreviewFiles,
+  infraRetryDelayMs,
+  PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE,
+  PREVIEW_INFRASTRUCTURE_RETRYING_MESSAGE,
+  PREVIEW_RECOMPILE_DELAY_MS,
+  PREVIEW_RESTART_COALESCE_MS,
+} from "./preview-stability";
 
 const PREVIEW_SELECT_SOURCE = "open-vibe-coding.preview-select";
 const PREVIEW_SELECT_COMMAND_SOURCE = "open-vibe-coding.preview-select-command";
@@ -250,9 +258,19 @@ export function SandpackRuntime({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [generation, setGeneration] = useState(0);
+  const infraRetryAttempt = useRef(0);
+  const infraRetryRevision = useRef<number | null>(null);
+  const infraRetryTimer = useRef<number | undefined>(undefined);
+  const infraRetryPending = useRef(false);
+  const restartTimer = useRef<number | undefined>(undefined);
+  const restartInFlight = useRef(false);
+  const pendingRestart = useRef(false);
+  const filesFingerprint = useMemo(() => fingerprintPreviewFiles(files), [files]);
   const instrumented = useMemo(
     () => instrumentPreviewSources(files),
-    [files],
+    // Keep instrumentation stable across equivalent file maps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filesFingerprint],
   );
   const elementPromptLabelsKey = [
     elementPromptLabels.dialogLabel,
@@ -270,6 +288,13 @@ export function SandpackRuntime({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [elementPromptLabelsKey, instrumented.files],
   );
+
+  useEffect(() => {
+    infraRetryAttempt.current = 0;
+    infraRetryRevision.current = null;
+    infraRetryPending.current = false;
+    window.clearTimeout(infraRetryTimer.current);
+  }, [revision, conversationId]);
 
   useEffect(() => {
     if (!active) return;
@@ -338,13 +363,28 @@ export function SandpackRuntime({
 
   useEffect(() => {
     if (!active) return undefined;
+    const scheduleRestart = () => {
+      if (restartInFlight.current) {
+        pendingRestart.current = true;
+        return;
+      }
+      window.clearTimeout(restartTimer.current);
+      restartTimer.current = window.setTimeout(() => {
+        restartInFlight.current = true;
+        pendingRestart.current = false;
+        setGeneration((value) => value + 1);
+      }, PREVIEW_RESTART_COALESCE_MS);
+    };
     const unsubscribe = coordinator.subscribeCommands((command) => {
       if (command.conversationId !== undefined && command.conversationId !== conversationId) return;
-      if (command.restart && command.revision >= revision) setGeneration((value) => value + 1);
+      if (command.restart && command.revision >= revision) scheduleRestart();
     });
     if (cachedReady) {
       coordinator.markReady({ conversationId, revision });
-      return unsubscribe;
+      return () => {
+        unsubscribe();
+        window.clearTimeout(restartTimer.current);
+      };
     }
     coordinator.request({
       conversationId,
@@ -352,8 +392,88 @@ export function SandpackRuntime({
       reason: "files-changed",
       restart: false,
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      window.clearTimeout(restartTimer.current);
+    };
   }, [active, cachedReady, conversationId, coordinator, revision]);
+
+  const handleBootSettled = useCallback(() => {
+    restartInFlight.current = false;
+    if (!pendingRestart.current) return;
+    pendingRestart.current = false;
+    window.clearTimeout(restartTimer.current);
+    restartTimer.current = window.setTimeout(() => {
+      restartInFlight.current = true;
+      setGeneration((value) => value + 1);
+    }, PREVIEW_RESTART_COALESCE_MS);
+  }, []);
+
+  const handleInfrastructureFault = useCallback(() => {
+    // Host console watch + bridge logs can report the same fault; coalesce.
+    if (infraRetryPending.current) return true;
+    if (infraRetryRevision.current !== revision) {
+      infraRetryRevision.current = revision;
+      infraRetryAttempt.current = 0;
+    }
+    const delay = infraRetryDelayMs(infraRetryAttempt.current);
+    if (delay === null) return false;
+    infraRetryAttempt.current += 1;
+    infraRetryPending.current = true;
+    window.clearTimeout(infraRetryTimer.current);
+    infraRetryTimer.current = window.setTimeout(() => {
+      infraRetryPending.current = false;
+      coordinator.request({
+        conversationId,
+        revision,
+        reason: "manual-refresh",
+        restart: true,
+      });
+    }, delay);
+    return true;
+  }, [conversationId, coordinator, revision]);
+
+  // Host-page console/SW faults often never reach useSandpackConsole. Watch the
+  // parent window for the same infrastructure failure signatures.
+  useEffect(() => {
+    if (!active) return undefined;
+    const target = { conversationId, revision };
+    let reported = false;
+    const report = (raw: string) => {
+      if (reported) return;
+      if (classifyHostInfrastructureText(raw) !== "infra-fatal") return;
+      reported = true;
+      const retried = handleInfrastructureFault();
+      coordinator.recordConsole(target, [{
+        id: `preview-infra-failure-host-${revision}`,
+        method: "error",
+        data: [retried ? PREVIEW_INFRASTRUCTURE_RETRYING_MESSAGE : PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE],
+      }]);
+      if (!retried) {
+        coordinator.markFailed(target, PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE);
+      }
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      report(formatUnknown(event.reason));
+    };
+    const onError = (event: ErrorEvent) => {
+      report([event.message, formatUnknown(event.error)].filter(Boolean).join("\n"));
+    };
+    const originalError = console.error.bind(console);
+    console.error = (...args: unknown[]) => {
+      originalError(...args);
+      report(args.map(formatUnknown).join("\n"));
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    window.addEventListener("error", onError);
+    return () => {
+      console.error = originalError;
+      window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("error", onError);
+      window.clearTimeout(infraRetryTimer.current);
+      infraRetryPending.current = false;
+    };
+  }, [active, conversationId, coordinator, handleInfrastructureFault, revision]);
 
   return (
     <div className="ob-sandpack-runtime-host" ref={hostRef}>
@@ -367,7 +487,7 @@ export function SandpackRuntime({
           // Agent edits can arrive in quick succession. Let Sandpack settle
           // them into one rebuild instead of repeatedly restarting Vite.
           recompileMode: "delayed",
-          recompileDelay: 500,
+          recompileDelay: PREVIEW_RECOMPILE_DELAY_MS,
         }}
         style={{ height: "100%" }}
       >
@@ -380,6 +500,8 @@ export function SandpackRuntime({
           coordinator={coordinator}
           onFileChange={onFileChange}
           syncEditorChanges={syncEditorChanges}
+          onBootSettled={handleBootSettled}
+          onInfrastructureFault={handleInfrastructureFault}
         />
         {children}
       </SandpackProvider>
@@ -483,4 +605,22 @@ function hashString(value: string): string {
     hash = (hash * 31 + value.charCodeAt(index)) | 0;
   }
   return Math.abs(hash).toString(36);
+}
+
+function classifyHostInfrastructureText(text: string) {
+  return classifySandpackConsoleEntry({
+    id: "host-infra",
+    method: "error",
+    data: [text],
+  });
+}
+
+function formatUnknown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return `${value.name}: ${value.message}\n${value.stack ?? ""}`;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }

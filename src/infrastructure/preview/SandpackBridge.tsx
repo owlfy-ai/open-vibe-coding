@@ -4,6 +4,17 @@ import type {
   PreviewConsoleEntry,
   PreviewCoordinator,
 } from "@/application/preview";
+import {
+  PREVIEW_FILE_SYNC_DELAY_MS,
+  PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE,
+  PREVIEW_INFRASTRUCTURE_RETRYING_MESSAGE,
+  shouldDeferFileSync,
+} from "./preview-stability";
+
+export {
+  PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE,
+  PREVIEW_INFRASTRUCTURE_RETRYING_MESSAGE,
+} from "./preview-stability";
 
 export interface SandpackBridgeProps {
   readonly conversationId: string;
@@ -16,6 +27,11 @@ export interface SandpackBridgeProps {
   readonly onFileChange: (path: string, content: string) => void;
   readonly editDebounceMs?: number;
   readonly syncEditorChanges?: boolean;
+  /** Called when Vite finished booting (or returned to idle after a restart). */
+  readonly onBootSettled?: () => void;
+  /** Called when a fatal Sandpack infrastructure fault is detected.
+   *  Return true if a retry was scheduled so the bridge can avoid marking failed yet. */
+  readonly onInfrastructureFault?: () => boolean;
 }
 
 /** Reports Sandpack state through the revision-aware preview port. */
@@ -29,27 +45,82 @@ export function SandpackBridge({
   onFileChange,
   editDebounceMs = 400,
   syncEditorChanges = true,
+  onBootSettled,
+  onInfrastructureFault,
 }: SandpackBridgeProps) {
   const { sandpack } = useSandpack();
   const { files, status, error } = sandpack;
   const currentFile = sandpack.activeFile;
   const code = files[currentFile]?.code;
   const syncedRevision = useRef<number | null>(null);
+  const pendingSync = useRef<{
+    readonly revision: number;
+    readonly files: Record<string, { readonly code: string }>;
+  } | null>(null);
+  const syncTimer = useRef<number | undefined>(undefined);
+  const infraFaultReported = useRef<number | null>(null);
+  const infraRetryScheduled = useRef(false);
   const { logs } = useSandpackConsole({
     resetOnPreviewRestart: true,
     showSyntaxError: true,
   });
 
-  // The app owns the code editor, so user edits update the project store first.
-  // Push each committed revision into Sandpack explicitly; relying only on
-  // SandpackProvider prop reconciliation can leave the preview running an older
-  // bundle while the file tree/editor already show newer content.
+  // Seed the synced revision from the provider's initial files so the first
+  // boot does not immediately call updateFile and fight Vite startup.
+  useEffect(() => {
+    if (syncedRevision.current === null) syncedRevision.current = revision;
+  }, [revision]);
+
+  const flushPendingSync = (next: {
+    readonly revision: number;
+    readonly files: Record<string, { readonly code: string }>;
+  }) => {
+    if (syncedRevision.current === next.revision) return;
+    syncedRevision.current = next.revision;
+    pendingSync.current = null;
+    sandpack.updateFile(next.files, undefined, true);
+  };
+
+  const scheduleSync = (next: {
+    readonly revision: number;
+    readonly files: Record<string, { readonly code: string }>;
+  }) => {
+    pendingSync.current = next;
+    if (shouldDeferFileSync(status)) return;
+    window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(() => {
+      const pending = pendingSync.current;
+      if (!pending) return;
+      flushPendingSync(pending);
+    }, PREVIEW_FILE_SYNC_DELAY_MS);
+  };
+
+  // Push committed revisions into Sandpack, but never during an active Vite boot.
   useEffect(() => {
     if (!active) return;
     if (syncedRevision.current === revision) return;
-    syncedRevision.current = revision;
-    sandpack.updateFile(externalFiles, undefined, true);
-  }, [active, externalFiles, revision, sandpack]);
+    scheduleSync({ revision, files: externalFiles });
+    return () => window.clearTimeout(syncTimer.current);
+    // scheduleSync closes over latest sandpack/status; deps cover the inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, externalFiles, revision, sandpack, status]);
+
+  // When boot finishes, flush any revision that arrived while status=running.
+  useEffect(() => {
+    if (!active) return;
+    if (shouldDeferFileSync(status)) return;
+    const pending = pendingSync.current;
+    if (pending && pending.revision !== syncedRevision.current) {
+      window.clearTimeout(syncTimer.current);
+      syncTimer.current = window.setTimeout(() => {
+        const latest = pendingSync.current;
+        if (!latest) return;
+        flushPendingSync(latest);
+      }, PREVIEW_FILE_SYNC_DELAY_MS);
+    }
+    if (status === "done" || status === "idle") onBootSettled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, onBootSettled, sandpack, status]);
 
   // Sandpack only honors options.activeFile on mount, so clicks in our file
   // tree (which change the prop) wouldn't switch the editor. Push the selected
@@ -75,10 +146,8 @@ export function SandpackBridge({
       coordinator.markReady(target);
       return;
     }
-    if (!error) {
-      const timer = window.setTimeout(() => coordinator.markReady(target), 250);
-      return () => window.clearTimeout(timer);
-    }
+    // Do not optimistically mark ready when Sandpack has no error yet — Vite
+    // may still be booting, and an early ready hides later infrastructure faults.
     return undefined;
   }, [active, conversationId, coordinator, error, revision, status]);
 
@@ -88,27 +157,59 @@ export function SandpackBridge({
 
   useEffect(() => {
     if (!active) return;
-    const consoleLogs: PreviewConsoleEntry[] = logs
-      .map(
-        (entry): PreviewConsoleEntry => ({
-          id: entry.id,
-          method: normalizeMethod(entry.method),
-          data: entry.data ?? [],
-        }),
-      )
-      .filter((entry) => !isSandpackInfrastructureNoise(entry));
+    const target = { conversationId, revision };
+    const consoleLogs: PreviewConsoleEntry[] = [];
+    let sawInfraFatal = false;
+
+    for (const entry of logs) {
+      const normalized: PreviewConsoleEntry = {
+        id: entry.id,
+        method: normalizeMethod(entry.method),
+        data: entry.data ?? [],
+      };
+      const kind = classifySandpackConsoleEntry(normalized);
+      if (kind === "noise") continue;
+      if (kind === "infra-fatal") {
+        sawInfraFatal = true;
+        continue;
+      }
+      consoleLogs.push(normalized);
+    }
+
     if (error?.message) {
-      consoleLogs.push({
+      const sandpackError: PreviewConsoleEntry = {
         id: `sandpack-error-${revision}`,
         method: "error",
         data: [error.message],
+      };
+      const kind = classifySandpackConsoleEntry(sandpackError);
+      if (kind === "app") consoleLogs.push(sandpackError);
+      else if (kind === "infra-fatal") sawInfraFatal = true;
+    }
+
+    if (sawInfraFatal) {
+      // Logs can re-fire while the worker is dead; only schedule one retry episode
+      // per Bridge mount / revision so we do not burn the backoff budget.
+      if (infraFaultReported.current !== revision) {
+        infraFaultReported.current = revision;
+        infraRetryScheduled.current = onInfrastructureFault?.() === true;
+        if (!infraRetryScheduled.current) {
+          coordinator.markFailed(target, PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE);
+        }
+      }
+      consoleLogs.push({
+        id: `preview-infra-failure-${revision}`,
+        method: "error",
+        data: [
+          infraRetryScheduled.current
+            ? PREVIEW_INFRASTRUCTURE_RETRYING_MESSAGE
+            : PREVIEW_INFRASTRUCTURE_FAILURE_MESSAGE,
+        ],
       });
     }
-    coordinator.recordConsole(
-      { conversationId, revision },
-      consoleLogs,
-    );
-  }, [active, conversationId, coordinator, error, logs, revision]);
+
+    coordinator.recordConsole(target, consoleLogs);
+  }, [active, conversationId, coordinator, error, logs, onInfrastructureFault, revision]);
 
   useEffect(() => {
     if (!active || !syncEditorChanges) return undefined;
@@ -136,12 +237,35 @@ function normalizeMethod(method: string): PreviewConsoleEntry["method"] {
     : "log";
 }
 
-export function isSandpackInfrastructureNoise(entry: PreviewConsoleEntry): boolean {
-  if (entry.method !== "error" && entry.method !== "warn") return false;
+export type SandpackConsoleKind = "app" | "noise" | "infra-fatal";
+
+export function classifySandpackConsoleEntry(entry: PreviewConsoleEntry): SandpackConsoleKind {
+  if (entry.method !== "error" && entry.method !== "warn") return "app";
   const text = entry.data.map(formatConsoleValue).join(" ");
-  if (text.includes("__csb_sw") || text.includes("/cdn-cgi/rum")) return true;
-  if (text.includes("BroadcastChannel") && text.includes("bridge/worker communication")) return true;
-  return text.includes("MessagePort") && text.includes("ReadableStream could not be cloned");
+  if (!text) return "app";
+
+  // Harmless telemetry / RUM noise.
+  if (text.includes("/cdn-cgi/rum")) return "noise";
+  if (text.includes("Unkown preview message") || text.includes("Unknown preview message")) return "noise";
+  if (text.includes("child:spawn called")) return "noise";
+
+  // Fatal worker/bridge faults that leave the preview blank.
+  if (text.includes("BroadcastChannel") && text.includes("bridge/worker communication")) return "infra-fatal";
+  if (text.includes("ReadableStream could not be cloned")) return "infra-fatal";
+  if (text.includes("no response received from the BroadcastChannel")) return "infra-fatal";
+  if (text.includes("Failed to handle GET") && text.includes("nodebox.codesandbox.io")) return "infra-fatal";
+  if (text.includes("net::ERR_FAILED") && text.includes("nodebox.codesandbox.io")) return "infra-fatal";
+  if (text.includes("__csb_sw") && /timeout|BroadcastChannel|ReadableStream|Failed to handle/i.test(text)) {
+    return "infra-fatal";
+  }
+
+  return "app";
+}
+
+/** @deprecated Prefer classifySandpackConsoleEntry; kept for existing imports/tests. */
+export function isSandpackInfrastructureNoise(entry: PreviewConsoleEntry): boolean {
+  const kind = classifySandpackConsoleEntry(entry);
+  return kind === "noise" || kind === "infra-fatal";
 }
 
 function formatConsoleValue(value: unknown): string {
