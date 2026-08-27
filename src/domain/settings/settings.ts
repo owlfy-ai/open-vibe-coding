@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     apiType: "official",
     apiKey: "",
     apiBaseUrl: "",
-    model: "Ultra",
+    model: "backup_glm5.3",
   },
   webSearch: {
     engine: "disabled",
@@ -203,7 +203,7 @@ function isEmptyLegacyProvider(
 
 function normalizeOfficialModel(model: string): string {
   void model;
-  return "Ultra";
+  return "backup_glm5.3";
 }
 
 function stringOrDefault(value: unknown, fallback: string): string {

@@ -12,12 +12,12 @@ There is no browser-language split and no China/global login mode switch.
 ```env
 VITE_OVC_BACKEND_URL=https://api.owlfy.ai
 VITE_OVC_LITELLM_BASE_URL=https://api.owlfy.ai/litellm/v1
-VITE_OVC_LITELLM_MODEL=Standard
+VITE_OVC_LITELLM_MODEL=backup_glm5.3
 VITE_OVC_APP_NAME=Open Vibe Coding
 VITE_CLERK_PUBLISHABLE_KEY=pk_live_or_test_...
 ```
 
-`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted. `VITE_OVC_LITELLM_BASE_URL` defaults to `<backend>/litellm/v1`, and `VITE_OVC_LITELLM_MODEL` defaults to `Standard`, matching OWLfy's default LiteLLM runtime.
+`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted. `VITE_OVC_LITELLM_BASE_URL` defaults to `<backend>/litellm/v1`, and `VITE_OVC_LITELLM_MODEL` defaults to `backup_glm5.3`.
 
 ## Auth Flow
 
@@ -88,7 +88,7 @@ The request body is the standard OpenAI Chat Completions streaming shape:
 
 ```json
 {
-  "model": "Standard",
+  "model": "backup_glm5.3",
   "stream": true,
   "messages": [],
   "tools": []
@@ -99,4 +99,4 @@ The LiteLLM backend owns provider routing, subscription checks, credit metering,
 
 Users can still switch the model provider in Settings to OpenAI-compatible, OpenAI, Anthropic, or Google. Those third-party providers use the user's own API key and base URL directly from the browser, bypass the backend model path, and do not consume backend Credits.
 
-When the official model provider is selected, the chat composer shows a model selector. `Standard` is available to every signed-in user and is the default. `Ultra` is only selectable for VIP users; non-VIP users remain on `Standard`.
+When the official model provider is selected, requests use the backend-managed `backup_glm5.3` model alias.

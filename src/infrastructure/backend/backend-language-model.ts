@@ -7,7 +7,7 @@ import { BackendAuthRequiredError } from "./backend-client";
 export class BackendLanguageModelAdapter implements LanguageModelPort {
   constructor(
     private readonly backend: BackendClient,
-    private readonly model = "Ultra",
+    private readonly model = "backup_glm5.3",
   ) {}
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
