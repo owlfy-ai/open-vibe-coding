@@ -14,7 +14,8 @@ import { MarkdownContent } from "./MarkdownContent";
 import { ReasoningBlock } from "./ReasoningBlock";
 
 const MAX_ATTACHMENTS = 5;
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
 const PENDING_CHAT_SUBMIT_KEY = "ovc.pendingChatSubmit";
 
 interface PendingAttachment {
@@ -347,7 +348,7 @@ export function ChatPanel({
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 onChange={(event) => {
                   void pickAttachments(event.currentTarget.files, attachments, setAttachments, setAttachmentError, t);
                   event.currentTarget.value = "";
@@ -519,7 +520,7 @@ async function pickAttachments(
 ) {
   if (!files || files.length === 0) return;
   setError(null);
-  const images = [...files].filter((file) => file.type.startsWith("image/"));
+  const images = [...files].filter((file) => SUPPORTED_IMAGE_TYPES.has(file.type));
   if (images.length < files.length) {
     setError(t.chat.onlyImages);
   }

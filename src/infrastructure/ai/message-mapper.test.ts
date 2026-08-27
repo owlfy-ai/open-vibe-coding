@@ -60,7 +60,7 @@ describe("AI SDK message mapper", () => {
       role: "user",
       content: [
         { type: "text", text: "Inspect" },
-        { type: "image", mediaType: "image/png" },
+        { type: "image", mediaType: "image/png", image: "abc" },
         { type: "file", mediaType: "application/pdf", filename: "brief.pdf" },
       ],
     });
@@ -76,6 +76,28 @@ describe("AI SDK message mapper", () => {
       content: [{ type: "tool-result", toolCallId: callId, output: { type: "json" } }],
     });
     expect(messages[0].role).toBe("user");
+  });
+
+  it("passes inline images as raw Base64 so OpenAI-compatible providers do not download data URLs", () => {
+    const messages: ConversationMessage[] = [
+      {
+        id: "message-1" as MessageId,
+        role: "user",
+        createdAt: 1,
+        content: [
+          {
+            type: "image",
+            mediaType: "image/jpeg",
+            data: "data:image/jpeg;base64,/9j/example",
+          },
+        ],
+      },
+    ];
+
+    expect(mapDomainMessages(messages, "openai-compatible")[0]).toMatchObject({
+      role: "user",
+      content: [{ type: "image", mediaType: "image/jpeg", image: "/9j/example" }],
+    });
   });
 
   it("adds the Google thought-signature compatibility marker only at the adapter boundary", () => {
