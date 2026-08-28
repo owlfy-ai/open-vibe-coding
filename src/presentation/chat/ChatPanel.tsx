@@ -40,6 +40,7 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<readonly PendingAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const [compactStatus, setCompactStatus] = useState<"idle" | "running" | "success" | "error">("idle");
   const [compactMessage, setCompactMessage] = useState<string | null>(null);
   const [runState, setRunState] = useState<AgentRunState>({ status: "idle" });
@@ -104,6 +105,55 @@ export function ChatPanel({
       { hiddenContext: formatSelectedElementHiddenContext(elementPromptRequest) },
     ).then(() => onElementPromptRequestConsumed?.());
   }, [conversation, elementPromptRequest, onElementPromptRequestConsumed, running, services]);
+
+  useEffect(() => {
+    let dragDepth = 0;
+
+    function handleFileDragEnter(event: DragEvent) {
+      if (!hasDraggedFiles(event.dataTransfer)) return;
+      event.preventDefault();
+      dragDepth += 1;
+      setDraggingFiles(true);
+    }
+
+    function handleFileDragOver(event: DragEvent) {
+      if (!hasDraggedFiles(event.dataTransfer)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    }
+
+    function handleFileDragLeave(event: DragEvent) {
+      if (dragDepth === 0) return;
+      event.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) setDraggingFiles(false);
+    }
+
+    function handleFileDrop(event: DragEvent) {
+      if (!hasDraggedFiles(event.dataTransfer)) return;
+      event.preventDefault();
+      dragDepth = 0;
+      setDraggingFiles(false);
+      void pickAttachments(
+        event.dataTransfer?.files ?? null,
+        attachments,
+        setAttachments,
+        setAttachmentError,
+        t,
+      );
+    }
+
+    window.addEventListener("dragenter", handleFileDragEnter);
+    window.addEventListener("dragover", handleFileDragOver);
+    window.addEventListener("dragleave", handleFileDragLeave);
+    window.addEventListener("drop", handleFileDrop);
+    return () => {
+      window.removeEventListener("dragenter", handleFileDragEnter);
+      window.removeEventListener("dragover", handleFileDragOver);
+      window.removeEventListener("dragleave", handleFileDragLeave);
+      window.removeEventListener("drop", handleFileDrop);
+    };
+  }, [attachments, t]);
 
   function handleMessagesScroll(event: React.UIEvent<HTMLDivElement>) {
     stickToBottomRef.current = isNearScrollBottom(event.currentTarget);
@@ -209,6 +259,13 @@ export function ChatPanel({
 
   return (
     <section className="ob-chat">
+      {draggingFiles ? (
+        <div className="ob-chat-drop-overlay" role="status" aria-live="polite">
+          <span><Icon name="image" size={28} /></span>
+          <strong>{t.chat.dropImages}</strong>
+          <small>{t.chat.dropImageHint}</small>
+        </div>
+      ) : null}
       <header className="ob-chat-header">
         <div>
           <strong>{conversation?.conversation.title || t.sidebar.untitled}</strong>
@@ -376,6 +433,10 @@ function isKnownSlashCommand(command: string): boolean {
     command === "/fork" ||
     command === "/compact" ||
     command === "/review";
+}
+
+function hasDraggedFiles(dataTransfer: DataTransfer | null): boolean {
+  return Array.from(dataTransfer?.types ?? []).includes("Files");
 }
 
 function isNearScrollBottom(element: HTMLElement, threshold = 28): boolean {
