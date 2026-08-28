@@ -478,7 +478,7 @@ export function SandpackRuntime({
   return (
     <div className="ob-sandpack-runtime-host" ref={hostRef}>
       <SandpackProvider
-        key={`${conversationId}-${template}-${generation}-${filesFingerprint}`}
+        key={`${conversationId}-${template}-${generation}`}
         theme={theme}
         template={template}
         files={runtimeFiles}

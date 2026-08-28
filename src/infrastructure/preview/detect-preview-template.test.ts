@@ -96,4 +96,42 @@ describe("resolvePreviewTemplate", () => {
     expect(enriched["/index.html"].code).toContain("/src/main.js");
     expect(enriched["/index.html"].code).toContain("知识图谱");
   });
+
+  it.each(["vite-react", "vite-react-ts"] as const)(
+    "preserves framework dependencies for %s previews",
+    (template) => {
+      const packageJson = JSON.stringify({
+        scripts: { dev: "vite" },
+        dependencies: {
+          react: "^19.0.0",
+          "react-dom": "^19.0.0",
+        },
+        devDependencies: {
+          "@types/react": "^19.0.0",
+          "@vitejs/plugin-react": "^4.3.4",
+          vite: "4.2.0",
+        },
+      });
+      const enriched = enrichPreviewFilesForTemplate(
+        {
+          "/package.json": { code: packageJson },
+          "/vite.config.js": {
+            code: 'import react from "@vitejs/plugin-react";\nexport default { plugins: [react()] };',
+          },
+          "/src/App.jsx": { code: "export default function App(){return <main />;}" },
+        },
+        template,
+      );
+
+      const pkg = JSON.parse(enriched["/package.json"].code) as {
+        dependencies: Record<string, string>;
+        devDependencies: Record<string, string>;
+      };
+      expect(pkg.dependencies.react).toBe("^19.0.0");
+      expect(pkg.dependencies["react-dom"]).toBe("^19.0.0");
+      expect(pkg.devDependencies["@types/react"]).toBe("^19.0.0");
+      expect(pkg.devDependencies["@vitejs/plugin-react"]).toBe("^4.3.4");
+      expect(enriched["/package.json"].code).toBe(packageJson);
+    },
+  );
 });

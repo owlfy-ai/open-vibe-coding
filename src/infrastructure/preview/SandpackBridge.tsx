@@ -178,7 +178,15 @@ export function SandpackBridge({
   }, [active, conversationId, coordinator, listen, revision, template]);
 
   useEffect(() => {
-    if (active && error) coordinator.markFailed({ conversationId, revision }, error.message);
+    if (!active || !error) return;
+    const kind = classifySandpackConsoleEntry({
+      id: `sandpack-error-${revision}`,
+      method: "error",
+      data: [error.message],
+    });
+    if (kind === "app") {
+      coordinator.markFailed({ conversationId, revision }, error.message);
+    }
   }, [active, conversationId, coordinator, error, revision]);
 
   useEffect(() => {
@@ -276,6 +284,7 @@ export function classifySandpackConsoleEntry(entry: PreviewConsoleEntry): Sandpa
   if (text.includes("child:spawn called")) return "noise";
 
   // Fatal worker/bridge faults that leave the preview blank.
+  if (/Failed to get shell by ID/i.test(text)) return "infra-fatal";
   if (text.includes("BroadcastChannel") && text.includes("bridge/worker communication")) return "infra-fatal";
   if (text.includes("ReadableStream could not be cloned")) return "infra-fatal";
   if (text.includes("no response received from the BroadcastChannel")) return "infra-fatal";
