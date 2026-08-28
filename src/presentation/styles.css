@@ -826,10 +826,48 @@ svg {
 /* ---------- Chat ---------- */
 
 .ob-chat {
+  position: relative;
   display: grid;
   min-width: 0;
   grid-template-rows: auto 1fr auto auto;
   overflow: hidden;
+}
+
+.ob-chat-drop-overlay {
+  position: absolute;
+  inset: 10px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  border: 2px dashed var(--ob-primary);
+  border-radius: var(--ob-radius-lg);
+  background: color-mix(in srgb, var(--ob-surface) 90%, transparent);
+  color: var(--ob-text);
+  pointer-events: none;
+  text-align: center;
+  backdrop-filter: blur(4px);
+}
+
+.ob-chat-drop-overlay > span {
+  display: inline-grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--ob-primary);
+  color: var(--ob-primary-contrast);
+}
+
+.ob-chat-drop-overlay > strong {
+  font-size: 0.95rem;
+}
+
+.ob-chat-drop-overlay > small {
+  color: var(--ob-text-muted);
+  font-size: 0.8rem;
 }
 
 .ob-chat-header > div {
