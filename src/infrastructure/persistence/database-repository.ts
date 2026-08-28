@@ -19,20 +19,18 @@ export class AppDatabaseRepository {
   async save(database: AppDatabase): Promise<Result<void, MigrationError>> {
     try {
       const serialized = JSON.stringify(database);
-      const stagingKey = `${DATABASE_STORAGE_KEY}:staging`;
-      await this.storage.set(stagingKey, serialized);
-      const staged = await this.storage.get(stagingKey);
-      const verified = staged === null ? null : parseCurrentDatabase(staged);
-      if (!verified?.ok) {
-        await this.storage.remove(stagingKey);
+      // IndexedDB commits a single key atomically. Writing the complete database
+      // to a staging key first would temporarily consume twice the storage.
+      await this.storage.set(DATABASE_STORAGE_KEY, serialized);
+      const committed = await this.storage.get(DATABASE_STORAGE_KEY);
+      const verified = committed === null ? null : parseCurrentDatabase(committed);
+      if (committed !== serialized || !verified?.ok) {
         return err({
           code: "invalid-data",
           source: "conversations",
           message: "Database write verification failed",
         });
       }
-      await this.storage.set(DATABASE_STORAGE_KEY, serialized);
-      await this.storage.remove(stagingKey);
       return ok(undefined);
     } catch (error) {
       return storageFailure(error);

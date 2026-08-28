@@ -11,6 +11,7 @@ function stores(conversations = new InMemoryKeyValueStorage()): BrowserPersisten
   return {
     target: new InMemoryKeyValueStorage(),
     legacy: {
+      currentDatabase: new InMemoryKeyValueStorage(),
       settings: new InMemoryKeyValueStorage(),
       conversations,
       snapshots: new InMemoryKeyValueStorage(),
