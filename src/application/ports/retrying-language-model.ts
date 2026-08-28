@@ -41,8 +41,10 @@ export interface ModelRetryOptions {
 }
 
 /**
- * Retries only before the first stream event. Once output is visible, replaying a
- * request could duplicate text or tool calls, so a later failure is propagated.
+ * Retries before the first committed stream event. Leading reasoning is buffered
+ * because providers can emit it long before a large tool call is complete. If
+ * that connection drops, the unfinished reasoning can be discarded safely and
+ * the request retried without duplicating visible text or tool calls.
  */
 export class RetryingLanguageModel implements LanguageModelPort {
   private readonly maxAttempts: number;
@@ -64,11 +66,20 @@ export class RetryingLanguageModel implements LanguageModelPort {
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       let emitted = false;
+      const pendingReasoning: ModelStreamEvent[] = [];
       try {
         for await (const event of this.source.stream(request)) {
-          emitted = true;
+          if (!emitted && event.type === "reasoning-delta") {
+            pendingReasoning.push(event);
+            continue;
+          }
+          if (!emitted) {
+            emitted = true;
+            yield* pendingReasoning;
+          }
           yield event;
         }
+        if (!emitted) yield* pendingReasoning;
         return;
       } catch (error) {
         if (

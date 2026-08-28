@@ -155,6 +155,52 @@ describe("ConversationIntelligenceService", () => {
     expect(session.snapshot().conversations[created.value].conversation.title).toBe(
       "Rock Paper Scissors Game",
     );
+    expect(model.requests[0].messages).toEqual([
+      expect.objectContaining({
+        role: "user",
+        content: [{ type: "text", text: "Create a rock paper scissors game" }],
+      }),
+    ]);
+    expect(JSON.stringify(model.requests[0].messages)).not.toContain("The game is ready to play");
+  });
+
+  it("removes accidental HTML from an automatically generated title", async () => {
+    const ids = new SequentialIdGenerator();
+    const session = new ApplicationSession(
+      createEmptyDatabase(1),
+      new AppDatabaseRepository(new InMemoryKeyValueStorage()),
+      ids,
+      new FixedClock(100),
+    );
+    const created = await session.createConversation();
+    if (!created.ok) throw new Error("create failed");
+    await session.appendConversationMessages(created.value, [
+      {
+        id: ids.next("message"),
+        role: "user",
+        createdAt: 1,
+        content: [{ type: "text", text: "制作一个环形跑道动画" }],
+      },
+      {
+        id: ids.next("message"),
+        role: "assistant",
+        createdAt: 2,
+        content: [{ type: "text", text: "<!DOCTYPE html><html>...</html>" }],
+      },
+    ]);
+    const model = new TextModel(["<h1>环形跑道动画</h1>"]);
+    const service = new ConversationIntelligenceService(
+      session,
+      model,
+      ids,
+      new FixedClock(100),
+    );
+
+    expect(await service.generateInitialTitle(created.value)).toEqual({
+      ok: true,
+      value: "环形跑道动画",
+    });
+    expect(JSON.stringify(model.requests[0].messages)).not.toContain("DOCTYPE");
   });
 
   it("does not auto-title conversations with a later user turn or a custom title", async () => {

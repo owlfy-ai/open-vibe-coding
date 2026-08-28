@@ -15,7 +15,7 @@ const database: AppDatabase = {
 };
 
 describe("AppDatabaseRepository", () => {
-  it("writes through staging and only clears its own namespace", async () => {
+  it("writes directly and only clears its own namespace", async () => {
     const storage = new InMemoryKeyValueStorage({ unrelated: "keep" });
     const repository = new AppDatabaseRepository(storage);
     expect(await repository.save(database)).toEqual({ ok: true, value: undefined });

@@ -68,15 +68,11 @@ export class ConversationIntelligenceService {
   ): Promise<Result<string, ConversationIntelligenceError>> {
     const persisted = this.session.snapshot().conversations[conversationId];
     if (!persisted) return this.notFound(conversationId);
-    const source = serializeMessages(
-      persisted.conversation.messages
-        .filter((message) => message.role === "user" || message.role === "assistant")
-        .slice(0, 6),
-      240,
-    );
+    const source = firstUserPrompt(persisted.conversation);
     if (!source) return err({ code: "insufficient-history", message: "No conversation text is available" });
+    const titlePrompt = titleSystemPrompt();
     const titleResult = await this.collectText(
-      "Create a concise 4-12 word title for this coding task in the user's language. Return only the title.",
+      titlePrompt,
       [this.textMessage(source)],
       signal,
     );
@@ -95,17 +91,13 @@ export class ConversationIntelligenceService {
     if (!persisted) return this.notFound(conversationId);
     if (!canAutoTitleInitialConversation(persisted.conversation)) return ok(null);
 
-    const source = serializeMessages(
-      persisted.conversation.messages
-        .filter((message) => message.role === "user" || message.role === "assistant")
-        .slice(0, 6),
-      240,
-    );
+    const source = firstUserPrompt(persisted.conversation);
     if (!source) return ok(null);
+    const initialTitlePrompt = titleSystemPrompt();
     const title = sanitizeTitle(
       await collectModelText(
         this.model,
-        "Create a short, descriptive title for this first completed coding task in the user's language. Return only the title, without quotation marks, Markdown, or ending punctuation.",
+        initialTitlePrompt,
         [this.textMessage(source)],
         signal,
       ),
@@ -166,13 +158,31 @@ function serializeMessages(messages: readonly ConversationMessage[], limit = 2_0
     .join("\n");
 }
 
+function firstUserPrompt(conversation: Conversation, limit = 1_000): string {
+  const firstUserMessage = conversation.messages.find((message) => message.role === "user");
+  return firstUserMessage ? textOf(firstUserMessage).trim().slice(0, limit) : "";
+}
+
+function titleSystemPrompt(): string {
+  return [
+    "Summarize the user's first prompt as a short title for this coding task.",
+    "Use the user's language. Keep Chinese titles within 20 characters and other titles within 8 words.",
+    "Return only the title, without quotation marks, Markdown, HTML, code, or ending punctuation.",
+  ].join(" ");
+}
+
 function sanitizeTitle(value: string): string {
-  return value
+  const normalized = value
     .trim()
+    .replace(/^```[^\n]*\n?|```$/g, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/^\s*(?:标题|title)\s*[:：]\s*/i, "")
+    .split(/\r?\n/, 1)[0]
     .replace(/^["'`]+|["'`]+$/g, "")
     .replace(/[.!。！]+$/, "")
-    .slice(0, 80)
+    .replace(/\s+/g, " ")
     .trim();
+  return Array.from(normalized).slice(0, 40).join("").trim();
 }
 
 function canAutoTitleInitialConversation(conversation: Conversation): boolean {

@@ -22,6 +22,8 @@ const LEGACY_KEYS = {
 } as const;
 
 export interface LegacyStorageSources {
+  /** The v1 monolithic database previously stored in localStorage. */
+  readonly currentDatabase: KeyValueStorage;
   readonly settings: KeyValueStorage;
   readonly conversations: KeyValueStorage;
   readonly snapshots: KeyValueStorage;
@@ -44,7 +46,19 @@ export class DatabaseMigrationService {
     const existing = await this.target.get(DATABASE_STORAGE_KEY);
     if (existing !== null) {
       const parsed = parseCurrentDatabase(existing);
-      return parsed.ok ? ok({ database: parsed.value, migrated: false }) : parsed;
+      if (!parsed.ok) return parsed;
+      await this.removeLegacyCurrentDatabase();
+      return ok({ database: parsed.value, migrated: false });
+    }
+
+    const localDatabase = await this.legacy.currentDatabase.get(DATABASE_STORAGE_KEY);
+    if (localDatabase !== null) {
+      const parsed = parseCurrentDatabase(localDatabase);
+      if (!parsed.ok) return parsed;
+      const persisted = await this.persistVerified(localDatabase);
+      if (!persisted.ok) return persisted;
+      await this.removeLegacyCurrentDatabase();
+      return ok({ database: parsed.value, migrated: true });
     }
 
     const payloads: LegacyPayloads = {
@@ -57,20 +71,34 @@ export class DatabaseMigrationService {
     if (!migrated.ok) return migrated;
 
     const serialized = JSON.stringify(migrated.value);
-    const stagingKey = `${DATABASE_STORAGE_KEY}:staging`;
-    await this.target.set(stagingKey, serialized);
-    const staged = await this.target.get(stagingKey);
-    if (staged === null || !parseCurrentDatabase(staged).ok) {
-      await this.target.remove(stagingKey);
+    const persisted = await this.persistVerified(serialized);
+    if (!persisted.ok) return persisted;
+    return ok({ database: migrated.value, migrated: true });
+  }
+
+  private async persistVerified(serialized: string): Promise<Result<void, MigrationError>> {
+    // IndexedDB commits a single key atomically, so a second full-size staging
+    // value is unnecessary and would temporarily double storage usage.
+    await this.target.set(DATABASE_STORAGE_KEY, serialized);
+    const committed = await this.target.get(DATABASE_STORAGE_KEY);
+    if (committed !== serialized || !parseCurrentDatabase(committed).ok) {
       return err({
         code: "invalid-data",
         source: "conversations",
-        message: "Staged database failed verification",
+        message: "Database write verification failed",
       });
     }
-    await this.target.set(DATABASE_STORAGE_KEY, serialized);
-    await this.target.remove(stagingKey);
-    return ok({ database: migrated.value, migrated: true });
+    return ok(undefined);
+  }
+
+  private async removeLegacyCurrentDatabase(): Promise<void> {
+    try {
+      await this.legacy.currentDatabase.remove(DATABASE_STORAGE_KEY);
+      await this.legacy.currentDatabase.remove(`${DATABASE_STORAGE_KEY}:staging`);
+    } catch {
+      // The verified IndexedDB copy is authoritative. A leftover localStorage
+      // copy is harmless and can be retried on a later cleanup.
+    }
   }
 }
 

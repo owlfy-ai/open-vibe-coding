@@ -420,6 +420,13 @@ svg {
   justify-content: space-between;
 }
 
+.ob-chat-header {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .ob-sidebar-header strong,
 .ob-chat-header strong {
   display: block;
@@ -430,6 +437,12 @@ svg {
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ob-chat-header strong {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ob-chat-header small,
@@ -872,6 +885,9 @@ svg {
 
 .ob-chat-header > div {
   display: flex;
+  width: 100%;
+  max-width: 100%;
+  flex: 1 1 0;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
@@ -919,10 +935,13 @@ svg {
 
 .ob-messages {
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   flex-direction: column;
   gap: 14px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 20px 18px 24px;
 }
 
@@ -958,14 +977,22 @@ svg {
 }
 
 .ob-message {
-  max-width: 94%;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 0;
   padding: 0;
   background: transparent;
   color: var(--ob-text);
   font-size: 0.95rem;
   line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   animation: ob-fade-in 0.2s ease;
+}
+
+.ob-message > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ob-message p {
@@ -1092,6 +1119,7 @@ svg {
 
 .ob-message-user {
   align-self: flex-end;
+  width: fit-content;
   max-width: 80%;
   border-radius: 16px 16px 4px 16px;
   padding: 10px 14px;
@@ -1099,6 +1127,7 @@ svg {
 }
 
 .ob-message-assistant {
+  width: 100%;
   align-self: stretch;
 }
 
@@ -1136,8 +1165,11 @@ svg {
 }
 
 .ob-reasoning pre {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   margin: 6px 0 0;
   white-space: pre-wrap;
+  word-break: break-word;
   font-size: 0.82rem;
   line-height: 1.55;
 }
@@ -1156,6 +1188,9 @@ svg {
 /* ---------- Tool call cards ---------- */
 
 .ob-tool-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin: 6px 0;
   overflow: hidden;
   border: 1px solid var(--ob-border);

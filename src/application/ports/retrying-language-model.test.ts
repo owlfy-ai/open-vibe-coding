@@ -67,6 +67,45 @@ describe("RetryingLanguageModel", () => {
     expect(attempts).toBe(1);
   });
 
+  it("retries after unfinished leading reasoning without replaying it", async () => {
+    let attempts = 0;
+    const source: LanguageModelPort = {
+      async *stream() {
+        attempts += 1;
+        yield { type: "reasoning-delta", delta: attempts === 1 ? "unfinished" : "ready" } as const;
+        if (attempts === 1) throw new Error("network error");
+        yield { type: "text-delta", delta: "done" } as const;
+        yield { type: "finish", reason: "stop" } as const;
+      },
+    };
+    const scheduler: RetryScheduler = { wait: vi.fn(async () => undefined) };
+    const model = new RetryingLanguageModel(source, scheduler, {
+      maxAttempts: 3,
+      baseDelayMs: 100,
+    });
+
+    expect(await collect(model)).toEqual([
+      { type: "reasoning-delta", delta: "ready" },
+      { type: "text-delta", delta: "done" },
+      { type: "finish", reason: "stop" },
+    ]);
+    expect(attempts).toBe(2);
+    expect(scheduler.wait).toHaveBeenCalledOnce();
+  });
+
+  it("flushes reasoning when a reasoning-only stream completes normally", async () => {
+    const source: LanguageModelPort = {
+      async *stream() {
+        yield { type: "reasoning-delta", delta: "complete" } as const;
+      },
+    };
+
+    expect(await collect(new RetryingLanguageModel(
+      source,
+      { wait: vi.fn(async () => undefined) },
+    ))).toEqual([{ type: "reasoning-delta", delta: "complete" }]);
+  });
+
   it("does not retry non-retryable client errors", async () => {
     const source: LanguageModelPort = {
       async *stream(): AsyncIterable<ModelStreamEvent> {
