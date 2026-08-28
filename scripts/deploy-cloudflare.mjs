@@ -1,11 +1,20 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { loadEnv } from "vite";
 
 const root = resolve(import.meta.dirname, "..");
 const configPath = resolve(root, "wrangler.jsonc");
+const buildEnv = {
+  ...process.env,
+  ...loadEnv("production", root, "VITE_"),
+};
 
-run("pnpm", ["build"]);
+if (!buildEnv.VITE_CLERK_PUBLISHABLE_KEY?.trim()) {
+  fail("VITE_CLERK_PUBLISHABLE_KEY is required for the production build.");
+}
+
+run("pnpm", ["build"], buildEnv);
 
 if (!existsSync(resolve(root, "dist", "index.html"))) {
   fail("Build completed, but dist/index.html was not found.");
@@ -17,12 +26,12 @@ if (!existsSync(configPath)) {
 
 run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath]);
 
-function run(command, args) {
+function run(command, args, env = process.env) {
   const printable = [command, ...args].join(" ");
   console.log(`\n$ ${printable}`);
   const result = spawnSync(command, args, {
     cwd: root,
-    env: process.env,
+    env,
     shell: false,
     stdio: "inherit",
   });
