@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
 import type { PersistedConversation } from "@/infrastructure/persistence";
 import type { AgentRunState } from "@/domain/agent";
-import type { ToolMessage, UserContent } from "@/domain/conversation";
+import type { ConversationId, ToolMessage, UserContent } from "@/domain/conversation";
 import type { PreviewElementPromptRequest, PreviewElementSelection } from "@/application/preview";
 import { useApplication } from "../runtime";
 import { interpolate, useT, type Translation } from "../i18n";
@@ -9,6 +9,7 @@ import { Icon } from "../icons";
 import { ChatMessage } from "./ChatMessage";
 import { MarkdownContent } from "./MarkdownContent";
 import { ReasoningBlock } from "./ReasoningBlock";
+import { liveRunFor, reduceChatLiveRuns } from "./chat-live-runs";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
@@ -45,15 +46,18 @@ export function ChatPanel({
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [compactStatus, setCompactStatus] = useState<"idle" | "running" | "success" | "error">("idle");
   const [compactMessage, setCompactMessage] = useState<string | null>(null);
-  const [runState, setRunState] = useState<AgentRunState>({ status: "idle" });
-  const [stream, setStream] = useState("");
-  const [reasoningStream, setReasoningStream] = useState("");
-  const [reasoningOpen, setReasoningOpen] = useState(true);
+  const [liveRuns, dispatchLiveRun] = useReducer(reduceChatLiveRuns, {});
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottomRef = useRef(true);
   const processedElementPromptRef = useRef<string | null>(null);
   const composingRef = useRef(false);
+  const conversationId = conversation?.conversation.id ?? null;
+  const liveRun = liveRunFor(liveRuns, conversationId);
+  const runState: AgentRunState = liveRun.state;
+  const stream = liveRun.text;
+  const reasoningStream = liveRun.reasoning;
+  const reasoningOpen = liveRun.reasoningOpen;
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
   const messages = conversation?.conversation.messages ?? [];
   const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0));
@@ -75,14 +79,14 @@ export function ChatPanel({
   // the live streaming buffer so the text isn't shown twice. Tied to the render
   // where the new message actually appears (no flicker while it persists).
   const assistantCount = messages.filter((message) => message.role === "assistant").length;
-  const seenAssistantCount = useRef(assistantCount);
+  const seenAssistantCounts = useRef<Partial<Record<ConversationId, number>>>({});
   useEffect(() => {
-    if (assistantCount === seenAssistantCount.current) return;
-    seenAssistantCount.current = assistantCount;
-    setStream("");
-    setReasoningStream("");
-    setReasoningOpen(true);
-  }, [assistantCount]);
+    if (!conversationId) return;
+    const previous = seenAssistantCounts.current[conversationId];
+    seenAssistantCounts.current[conversationId] = assistantCount;
+    if (previous === undefined || assistantCount === previous) return;
+    dispatchLiveRun({ type: "clear-output", conversationId });
+  }, [assistantCount, conversationId]);
 
   useEffect(() => {
     stickToBottomRef.current = true;
@@ -199,32 +203,28 @@ export function ChatPanel({
     options: { readonly hiddenContext?: string } = {},
   ) {
     if (!conversation || !services) return;
-    setStream("");
-    setReasoningStream("");
-    setReasoningOpen(true);
-    const run = running ? services.agent.interruptAndRun.bind(services.agent) : services.agent.run.bind(services.agent);
-    const result = await run(conversation.conversation.id, content, {
-      hiddenContext: options.hiddenContext,
-      observer: {
-        onStateChange: setRunState,
-        onDelta: ({ type, value }) => {
-          if (type === "reasoning") {
-            setReasoningStream((current) => current + value);
-            return;
-          }
-          if (type === "text") {
-            // Collapse reasoning as soon as answer tokens start arriving.
-            setReasoningOpen(false);
-            setStream((current) => current + value);
-          }
-        },
+    const targetConversationId = conversation.conversation.id;
+    const targetWasRunning = running;
+    dispatchLiveRun({ type: "clear-output", conversationId: targetConversationId });
+    const observer = {
+      onStateChange: (state: AgentRunState) => {
+        dispatchLiveRun({ type: "state", conversationId: targetConversationId, state });
       },
+      onDelta: ({ type, value }: { readonly type: string; readonly value: string }) => {
+        if (type !== "reasoning" && type !== "text") return;
+        dispatchLiveRun({ type: "delta", conversationId: targetConversationId, kind: type, value });
+      },
+    };
+    const run = targetWasRunning
+      ? services.agent.interruptAndRun.bind(services.agent)
+      : services.agent.run.bind(services.agent);
+    const result = await run(targetConversationId, content, {
+      hiddenContext: options.hiddenContext,
+      observer,
     });
-    setStream("");
-    setReasoningStream("");
-    setReasoningOpen(true);
+    dispatchLiveRun({ type: "clear-output", conversationId: targetConversationId });
     if (result.ok && result.value.state.status === "completed") {
-      void services.conversations.generateInitialTitle(conversation.conversation.id).catch(() => undefined);
+      void services.conversations.generateInitialTitle(targetConversationId).catch(() => undefined);
     }
   }
 
@@ -295,7 +295,9 @@ export function ChatPanel({
               <ReasoningBlock
                 text={reasoningStream}
                 open={reasoningOpen}
-                onOpenChange={setReasoningOpen}
+                onOpenChange={(open) => {
+                  if (conversationId) dispatchLiveRun({ type: "reasoning-open", conversationId, open });
+                }}
               />
             ) : null}
             {stream ? <MarkdownContent content={stream} /> : null}
