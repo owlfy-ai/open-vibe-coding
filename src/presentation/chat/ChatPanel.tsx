@@ -12,6 +12,8 @@ import { ReasoningBlock } from "./ReasoningBlock";
 
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_RASTERIZED_SVG_DIMENSION = 2048;
+const SVG_IMAGE_TYPE = "image/svg+xml";
 
 interface PendingAttachment {
   readonly name: string;
@@ -321,7 +323,7 @@ export function ChatPanel({
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/*,.svg"
                 onChange={(event) => {
                   void pickAttachments(event.currentTarget.files, attachments, setAttachments, setAttachmentError, t);
                   event.currentTarget.value = "";
@@ -498,7 +500,7 @@ async function pickAttachments(
 ) {
   if (!files || files.length === 0) return;
   setError(null);
-  const images = [...files].filter((file) => file.type.startsWith("image/"));
+  const images = [...files].filter(isSupportedImageFile);
   if (images.length < files.length) {
     setError(t.chat.onlyImages);
   }
@@ -512,21 +514,92 @@ async function pickAttachments(
       setError(interpolate(t.chat.fileTooLarge, { name: file.name }));
       continue;
     }
-    accepted.push({
-      name: file.name,
-      mediaType: file.type || "application/octet-stream",
-      size: file.size,
-      data: await readFileAsDataUrl(file),
-    });
+    try {
+      const attachment = await prepareImageAttachment(file);
+      if (attachment.size > MAX_ATTACHMENT_BYTES) {
+        setError(interpolate(t.chat.fileTooLarge, { name: file.name }));
+        continue;
+      }
+      accepted.push(attachment);
+    } catch {
+      setError(interpolate(t.chat.readFileFailed, { name: file.name }));
+    }
   }
   setAttachments([...existing, ...accepted]);
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
+function isSupportedImageFile(file: File): boolean {
+  return file.type.startsWith("image/") || file.name.toLowerCase().endsWith(".svg");
+}
+
+function isSvgImageFile(file: File): boolean {
+  return file.type === SVG_IMAGE_TYPE || file.name.toLowerCase().endsWith(".svg");
+}
+
+async function prepareImageAttachment(file: File): Promise<PendingAttachment> {
+  if (!isSvgImageFile(file)) {
+    return {
+      name: file.name,
+      mediaType: file.type,
+      size: file.size,
+      data: await readBlobAsDataUrl(file, file.name),
+    };
+  }
+
+  const png = await rasterizeSvgAsPng(file);
+  return {
+    name: file.name,
+    mediaType: "image/png",
+    size: png.size,
+    data: await readBlobAsDataUrl(png, file.name),
+  };
+}
+
+async function rasterizeSvgAsPng(file: File): Promise<Blob> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImage(objectUrl, file.name);
+    const sourceWidth = image.naturalWidth || 300;
+    const sourceHeight = image.naturalHeight || 150;
+    const scale = Math.min(
+      1,
+      MAX_RASTERIZED_SVG_DIMENSION / Math.max(sourceWidth, sourceHeight),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error(`Failed to create canvas for ${file.name}`);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return await canvasToPng(canvas, file.name);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function loadImage(url: string, name: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image), { once: true });
+    image.addEventListener("error", () => reject(new Error(`Failed to load ${name}`)), { once: true });
+    image.src = url;
+  });
+}
+
+function canvasToPng(canvas: HTMLCanvasElement, name: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error(`Failed to convert ${name} to PNG`));
+    }, "image/png");
+  });
+}
+
+function readBlobAsDataUrl(blob: Blob, name: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.addEventListener("load", () => resolve(String(reader.result)));
-    reader.addEventListener("error", () => reject(reader.error ?? new Error(`Failed to read ${file.name}`)));
-    reader.readAsDataURL(file);
+    reader.addEventListener("error", () => reject(reader.error ?? new Error(`Failed to read ${name}`)));
+    reader.readAsDataURL(blob);
   });
 }
