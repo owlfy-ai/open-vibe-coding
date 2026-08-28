@@ -412,6 +412,27 @@ export function ChatPanel({
                 }}
               />
             </label>
+            {attachments.length > 0 ? (
+              <div className="ob-attachments">
+                {attachments.map((attachment) => (
+                  <div className="ob-attachment-preview" key={`${attachment.name}-${attachment.size}`}>
+                    <img src={attachment.data} alt={attachment.name} />
+                    <span title={attachment.name}>{attachment.name}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAttachments((current) =>
+                          current.filter((item) => item !== attachment),
+                        )
+                      }
+                      aria-label={interpolate(t.chat.removeAttachment, { name: attachment.name })}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {selectedElement ? (
               <span className="ob-selected-element-chip">
                 <Icon name="crosshair" size={13} />
@@ -486,26 +507,6 @@ export function ChatPanel({
             </button>
           ) : null}
         </div>
-        {attachments.length > 0 ? (
-          <div className="ob-attachments">
-            {attachments.map((attachment) => (
-              <span key={`${attachment.name}-${attachment.size}`}>
-                <Icon name="image" size={13} /> {attachment.name}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAttachments((current) =>
-                      current.filter((item) => item !== attachment),
-                    )
-                  }
-                  aria-label={interpolate(t.chat.removeAttachment, { name: attachment.name })}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : null}
         {attachmentError ? <small className="ob-attachment-error">{attachmentError}</small> : null}
       </form>
     </section>

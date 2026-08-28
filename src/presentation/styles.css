@@ -1362,10 +1362,11 @@ svg {
 
 .ob-composer-toolbar-left {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
-  flex: none;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ob-model-select {
@@ -1397,7 +1398,7 @@ svg {
 }
 
 .ob-composer-toolbar-right {
-  flex: 1;
+  flex: none;
 }
 
 .ob-selected-element-chip {
@@ -1574,24 +1575,48 @@ svg {
 
 .ob-attachments {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
-.ob-attachments span {
+.ob-attachment-preview {
   display: inline-flex;
+  flex: 0 0 auto;
+  max-width: 180px;
+  height: 40px;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--ob-border);
-  border-radius: 999px;
-  padding: 5px 8px 5px 10px;
+  border-radius: 10px;
+  padding: 3px 7px 3px 3px;
   background: var(--ob-surface-subtle);
   color: var(--ob-text-secondary);
   font-size: 0.82rem;
 }
 
-.ob-attachments span button {
+.ob-attachment-preview img {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--ob-surface-sunken);
+  object-fit: cover;
+}
+
+.ob-attachment-preview > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ob-attachment-preview button {
   display: grid;
+  flex: none;
   place-items: center;
   width: 16px;
   height: 16px;
@@ -1601,7 +1626,7 @@ svg {
   color: var(--ob-text-muted);
 }
 
-.ob-attachments span button:hover {
+.ob-attachment-preview button:hover {
   background: var(--ob-hover-strong);
   color: var(--ob-text);
 }
