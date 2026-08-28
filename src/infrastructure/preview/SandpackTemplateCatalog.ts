@@ -7,12 +7,23 @@ import type {
 import { importLegacyProjectFiles } from "@/domain/project";
 import { err, ok, type Result } from "@/shared/result";
 
+const PRODUCT_TEMPLATE_NAMES = [
+  "static",
+  "vite",
+  "vite-react",
+  "vite-react-ts",
+] as const;
+const PRODUCT_TEMPLATE_SET = new Set<string>(PRODUCT_TEMPLATE_NAMES);
+
 export class SandpackTemplateCatalog implements TemplateCatalog {
   list(): readonly string[] {
-    return Object.keys(SANDBOX_TEMPLATES).sort();
+    return PRODUCT_TEMPLATE_NAMES;
   }
 
   load(name: string): Result<ProjectTemplate, TemplateCatalogError> {
+    if (!PRODUCT_TEMPLATE_SET.has(name)) {
+      return err({ code: "unknown-template", message: `Unsupported project template: ${name}` });
+    }
     const template = SANDBOX_TEMPLATES[name as keyof typeof SANDBOX_TEMPLATES];
     if (!template) {
       return err({ code: "unknown-template", message: `Unknown Sandpack template: ${name}` });

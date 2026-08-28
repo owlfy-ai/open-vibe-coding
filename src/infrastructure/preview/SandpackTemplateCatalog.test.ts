@@ -2,6 +2,25 @@ import { describe, expect, it } from "vitest";
 import { SandpackTemplateCatalog } from "./SandpackTemplateCatalog";
 
 describe("SandpackTemplateCatalog", () => {
+  it("exposes only the product-supported templates to the agent", () => {
+    const catalog = new SandpackTemplateCatalog();
+
+    expect(catalog.list()).toEqual([
+      "static",
+      "vite",
+      "vite-react",
+      "vite-react-ts",
+    ]);
+    expect(catalog.load("vanilla")).toMatchObject({
+      ok: false,
+      error: { code: "unknown-template" },
+    });
+    expect(catalog.load("react-ts")).toMatchObject({
+      ok: false,
+      error: { code: "unknown-template" },
+    });
+  });
+
   it("normalizes vite react typescript templates to a single src entrypoint", () => {
     const template = new SandpackTemplateCatalog().load("vite-react-ts");
 

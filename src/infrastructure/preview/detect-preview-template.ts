@@ -118,7 +118,10 @@ export function enrichPreviewFilesForTemplate(
   files: Readonly<Record<string, { readonly code: string }>>,
   template: SandpackPredefinedTemplate,
 ): Record<string, { code: string }> {
-  if (template !== "vite" && !template.startsWith("vite-")) {
+  // This repair rewrites package.json for a framework-free Vite project. It
+  // must not run for vite-react / vite-vue / other framework templates because
+  // their Vite configs require the framework plugins that the repair removes.
+  if (template !== "vite") {
     return normalizeFileMap(files);
   }
 
