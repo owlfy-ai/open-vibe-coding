@@ -116,7 +116,7 @@ describe("ConversationIntelligenceService", () => {
     );
   });
 
-  it("auto-titles only a completed first turn with the default title", async () => {
+  it("auto-titles immediately after the first user prompt", async () => {
     const ids = new SequentialIdGenerator();
     const session = new ApplicationSession(
       createEmptyDatabase(1),
@@ -132,12 +132,6 @@ describe("ConversationIntelligenceService", () => {
         role: "user",
         createdAt: 1,
         content: [{ type: "text", text: "Create a rock paper scissors game" }],
-      },
-      {
-        id: ids.next("message"),
-        role: "assistant",
-        createdAt: 2,
-        content: [{ type: "text", text: "The game is ready to play." }],
       },
     ]);
     const model = new TextModel(["Rock Paper Scissors Game"]);
@@ -161,7 +155,7 @@ describe("ConversationIntelligenceService", () => {
         content: [{ type: "text", text: "Create a rock paper scissors game" }],
       }),
     ]);
-    expect(JSON.stringify(model.requests[0].messages)).not.toContain("The game is ready to play");
+    expect(session.snapshot().conversations[created.value].conversation.messages).toHaveLength(1);
   });
 
   it("removes accidental HTML from an automatically generated title", async () => {
