@@ -92,7 +92,11 @@ export function SessionSidebar({
             className={`ob-session ${conversation.id === database.activeConversationId ? "is-active" : ""}`}
             key={conversation.id}
           >
-            <button className="ob-session-main" onClick={() => select(conversation.id)}>
+            <button
+              className="ob-session-main"
+              onClick={() => select(conversation.id)}
+              title={conversation.title || untitledLabel}
+            >
               <span className={`ob-pin ${conversation.pinned ? "is-on" : ""}`}>
                 <Icon name={conversation.pinned ? "pinFilled" : "pin"} size={11} />
               </span>
