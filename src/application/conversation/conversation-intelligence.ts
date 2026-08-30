@@ -161,6 +161,5 @@ function sanitizeTitle(value: string): string {
 
 function canAutoTitleInitialConversation(conversation: Conversation): boolean {
   return !conversation.title?.trim() &&
-    conversation.messages.filter((message) => message.role === "user").length === 1 &&
-    conversation.messages.some((message) => message.role === "assistant");
+    conversation.messages.filter((message) => message.role === "user").length === 1;
 }

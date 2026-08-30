@@ -205,10 +205,19 @@ export function ChatPanel({
     if (!conversation || !services) return;
     const targetConversationId = conversation.conversation.id;
     const targetWasRunning = running;
+    let initialTitleRequested = false;
+    const requestInitialTitle = () => {
+      if (initialTitleRequested) return;
+      initialTitleRequested = true;
+      void services.conversations.generateInitialTitle(targetConversationId).catch(() => undefined);
+    };
     dispatchLiveRun({ type: "clear-output", conversationId: targetConversationId });
     const observer = {
       onStateChange: (state: AgentRunState) => {
         dispatchLiveRun({ type: "state", conversationId: targetConversationId, state });
+        // The first preparing state is emitted after the user message has been
+        // persisted and before the Agent starts streaming its reply.
+        if (state.status === "preparing") requestInitialTitle();
       },
       onDelta: ({ type, value }: { readonly type: string; readonly value: string }) => {
         if (type !== "reasoning" && type !== "text") return;
@@ -218,14 +227,11 @@ export function ChatPanel({
     const run = targetWasRunning
       ? services.agent.interruptAndRun.bind(services.agent)
       : services.agent.run.bind(services.agent);
-    const result = await run(targetConversationId, content, {
+    await run(targetConversationId, content, {
       hiddenContext: options.hiddenContext,
       observer,
     });
     dispatchLiveRun({ type: "clear-output", conversationId: targetConversationId });
-    if (result.ok && result.value.state.status === "completed") {
-      void services.conversations.generateInitialTitle(targetConversationId).catch(() => undefined);
-    }
   }
 
   async function runSlashCommand(command: string) {
