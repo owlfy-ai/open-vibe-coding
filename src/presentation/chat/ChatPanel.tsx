@@ -161,6 +161,21 @@ export function ChatPanel({
     };
   }, [attachments, t]);
 
+  function handleImagePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    // Read clipboard files synchronously; browsers may clear them after the event.
+    const files = Array.from(event.clipboardData.files);
+    const candidates = files.length > 0
+      ? files
+      : Array.from(event.clipboardData.items).flatMap((item) => {
+          const file = item.kind === "file" ? item.getAsFile() : null;
+          return file ? [file] : [];
+        });
+    const images = candidates.filter((file) => file.type.startsWith("image/") || isSupportedImageFile(file));
+    if (images.length === 0) return; // Preserve the browser's normal text paste.
+    event.preventDefault();
+    void pickAttachments(images, attachments, setAttachments, setAttachmentError, t);
+  }
+
   function handleMessagesScroll(event: React.UIEvent<HTMLDivElement>) {
     stickToBottomRef.current = isNearScrollBottom(event.currentTarget);
   }
@@ -403,6 +418,7 @@ export function ChatPanel({
             ref={textareaRef}
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            onPaste={handleImagePaste}
             onCompositionStart={() => {
               composingRef.current = true;
             }}
@@ -500,7 +516,7 @@ function agentFailureTitle(code: string, t: Translation): string {
 }
 
 async function pickAttachments(
-  files: FileList | null,
+  files: FileList | readonly File[] | null,
   existing: readonly PendingAttachment[],
   setAttachments: (attachments: readonly PendingAttachment[]) => void,
   setError: (message: string | null) => void,
