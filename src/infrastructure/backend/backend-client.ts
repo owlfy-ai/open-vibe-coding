@@ -8,8 +8,6 @@ import type { OperationsConfig } from "@/app/operations-config";
 import type { JsonValue } from "@/domain/conversation";
 import type { ImageSearchInput, ImageSearchResult } from "@/application/ports/research";
 
-const SESSION_STORAGE_KEY = "ovc.backend.session";
-
 export class BackendAuthRequiredError extends Error {
   readonly status = 401;
   readonly code = "backend-auth-required";
@@ -68,8 +66,7 @@ interface OwlfyUser {
 }
 
 interface BillingPortalResponse {
-  readonly url?: string;
-  readonly website?: string;
+  readonly portalUrl: string;
 }
 
 export interface PublishSiteRequest {
@@ -129,10 +126,17 @@ export interface PublishSubDomainResult {
 }
 
 export class BackendClient implements BackendAuthPort {
-  constructor(private readonly config: OperationsConfig) {}
+  private readonly sessionStorageKey: string;
+
+  constructor(private readonly config: OperationsConfig) {
+    // Never restore tokens from a different product, backend or Clerk instance.
+    this.sessionStorageKey = `ovc.backend.session:${JSON.stringify([
+      config.appId, config.backendUrl, config.clerkPublishableKey,
+    ])}`;
+  }
 
   current(): BackendSession | null {
-    return readSession();
+    return readSession(this.sessionStorageKey);
   }
 
   async login(email: string, sessionToken: string): Promise<BackendSession> {
@@ -142,6 +146,7 @@ export class BackendClient implements BackendAuthPort {
 
   async clerkLogin(provider: "oauth_google" | "email", sessionToken: string): Promise<BackendSession> {
     const data = await this.postOwlfy<OwlfyLoginData>("/api/base/unified-login", {
+      app_id: this.config.appId,
       provider,
       sessionToken,
     });
@@ -150,38 +155,37 @@ export class BackendClient implements BackendAuthPort {
   }
 
   async refresh(): Promise<BackendSession | null> {
-    const current = readSession();
+    const current = readSession(this.sessionStorageKey);
     if (!current) return null;
     try {
       const data = await this.getOwlfy<OwlfyUserInfoData>("/api/user/getUserInfo", current.accessToken);
       const owlfyUser = data.userInfo ?? data.user;
       const user = owlfyUser ? normalizeUser(owlfyUser) : current.user;
       const session = {
-        ...current,
+        ...(readSession(this.sessionStorageKey) ?? current),
         user,
         liteLlmKey: normalizeLiteLlmKey(owlfyUser, data.liteLlmKey) ?? current.liteLlmKey,
         vipLevel: owlfyUser ? normalizeVipLevel(owlfyUser) : current.vipLevel,
         publishSubDomain: owlfyUser ? normalizePublishSubDomain(owlfyUser) : current.publishSubDomain,
         plan: owlfyUser ? normalizePlan(owlfyUser) : current.plan,
       };
-      writeSession(session);
+      writeSession(this.sessionStorageKey, session);
       return session;
     } catch {
-      clearSession();
+      clearSession(this.sessionStorageKey);
       return null;
     }
   }
 
   async logout(): Promise<void> {
-    clearSession();
+    clearSession(this.sessionStorageKey);
   }
 
   async createBillingPortal(): Promise<string> {
-    const response = await this.getOwlfy<BillingPortalResponse | string>("/api/sysConfig/getByKey?key=website")
-      .catch(() => this.config.backendUrl);
-    const baseUrl = typeof response === "string" ? response : response.url || response.website || this.config.backendUrl;
-    const token = this.current()?.accessToken;
-    return `${normalizeExternalUrl(baseUrl)}?page=pricing${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+    const response = await this.postOwlfy<BillingPortalResponse>("/api/stripe/create-portal-session", {
+      returnUrl: `${window.location.origin}/`,
+    });
+    return response.portalUrl;
   }
 
   async publishSite(request: PublishSiteRequest): Promise<PublishedSite> {
@@ -246,7 +250,7 @@ export class BackendClient implements BackendAuthPort {
       user: normalizeUser(data.user),
       plan: normalizePlan(data.user),
     };
-    writeSession(session);
+    writeSession(this.sessionStorageKey, session);
     return session;
   }
 
@@ -266,14 +270,14 @@ export class BackendClient implements BackendAuthPort {
       readonly token?: string;
     },
   ): Promise<T> {
-    const token = options.token ?? readSession()?.accessToken;
+    const token = options.token ?? readSession(this.sessionStorageKey)?.accessToken;
     const response = await fetch(`${this.config.backendUrl}${path}`, {
       method: options.method,
       headers: this.headers(token),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
-    updateSessionTokenFromHeaders(response);
-    if (!response.ok) throw await toBackendError(response);
+    updateSessionTokenFromHeaders(response, this.sessionStorageKey);
+    if (!response.ok) throw await toBackendError(response, this.sessionStorageKey);
     const envelope = (await response.json()) as OwlfyResponse<T> | T;
     if (isOwlfyEnvelope(envelope)) {
       if (envelope.code !== 0) {
@@ -287,6 +291,7 @@ export class BackendClient implements BackendAuthPort {
   private headers(token?: string): Record<string, string> {
     return {
       "Content-Type": "application/json",
+      "X-App-ID": this.config.appId,
       ...(token ? { Authorization: `Bearer ${token}`, "X-Token": token } : {}),
     };
   }
@@ -335,46 +340,40 @@ function isOwlfyEnvelope<T>(value: OwlfyResponse<T> | T): value is OwlfyResponse
   return typeof value === "object" && value !== null && "code" in value;
 }
 
-function readSession(): BackendSession | null {
+function readSession(storageKey: string): BackendSession | null {
   try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     return raw ? (JSON.parse(raw) as BackendSession) : null;
   } catch {
     return null;
   }
 }
 
-function writeSession(session: BackendSession): void {
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+function writeSession(storageKey: string, session: BackendSession): void {
+  localStorage.setItem(storageKey, JSON.stringify(session));
 }
 
-function clearSession(): void {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
+function clearSession(storageKey: string): void {
+  localStorage.removeItem(storageKey);
 }
 
-function updateSessionTokenFromHeaders(response: Response): void {
+function updateSessionTokenFromHeaders(response: Response, storageKey: string): void {
   const token = response.headers.get("new-token");
   if (!token) return;
-  const current = readSession();
+  const current = readSession(storageKey);
   if (!current) return;
   const expiresAt = normalizeExpiresAt(Number(response.headers.get("new-expires-at")));
-  writeSession({
+  writeSession(storageKey, {
     ...current,
     accessToken: token,
     expiresAt: expiresAt ?? current.expiresAt,
   });
 }
 
-function normalizeExternalUrl(value: string): string {
-  const trimmed = value.trim();
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  return withProtocol.replace(/\/+$/, "");
-}
-
-async function toBackendError(response: Response): Promise<Error & { status: number }> {
+async function toBackendError(response: Response, storageKey: string): Promise<Error & { status: number }> {
   const detail = await response.text();
   if (response.status === 401) {
-    clearSession();
+    clearSession(storageKey);
     return new BackendAuthRequiredError(detail.trim() || "Sign in required") as Error & { status: number };
   }
   const error = new Error(detail.trim() || `Backend request failed with HTTP ${response.status}`) as Error & {

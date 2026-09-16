@@ -100,6 +100,7 @@ describe("image and npm research adapters", () => {
   it("uses official image search when no third-party key is configured", async () => {
     const fetcher = vi.fn();
     const backend = new BackendClient({
+      appId: "qidea.ai",
       backendUrl: "https://backend.test",
       liteLlmBaseUrl: "https://backend.test/litellm/v1",
       liteLlmModel: "Standard",
