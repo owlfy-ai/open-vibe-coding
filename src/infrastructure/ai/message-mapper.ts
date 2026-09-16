@@ -61,7 +61,11 @@ export function mapDomainMessages(
         if (part.type === "image") {
           return {
             type: "image" as const,
-            image: part.data,
+            // Passing a data URL here makes AI SDK treat it as a remote URL and
+            // attempt to download it. Its downloader only permits http(s), so
+            // inline images must be passed as raw Base64 instead. The provider
+            // adapter reconstructs the OpenAI-compatible data URL on the wire.
+            image: imageData(part.data),
             mediaType: part.mediaType,
           };
         }
@@ -117,6 +121,11 @@ export function mapDomainMessages(
     } else output.push({ role: "tool", content: [result] });
   }
   return output;
+}
+
+function imageData(data: string): string {
+  const match = /^data:[^;,]+;base64,(.*)$/s.exec(data);
+  return match?.[1] ?? data;
 }
 
 export function assertProviderSupportsAttachments(

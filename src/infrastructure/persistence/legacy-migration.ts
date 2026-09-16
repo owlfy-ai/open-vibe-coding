@@ -260,7 +260,7 @@ function migrateSettings(state: UnknownRecord): AppSettings {
   const legacyUrl = optionalString(ai.apiUrl)?.replace(/\/chat\/completions$/, "");
   return {
     ai: {
-      apiType: enumOr(ai.apiType, ["openai-compatible", "openai", "anthropic", "google"], "openai-compatible"),
+      apiType: enumOr(ai.apiType, ["official", "openai-compatible", "openai", "anthropic", "google"], "official"),
       apiKey: optionalString(ai.apiKey) ?? "",
       apiBaseUrl: (optionalString(ai.apiBaseUrl) ?? legacyUrl ?? "").replace(/\/+$/, ""),
       model: optionalString(ai.model) ?? "",
@@ -277,7 +277,7 @@ function migrateSettings(state: UnknownRecord): AppSettings {
       firecrawlApiUrl: optionalString(webSearch.firecrawlApiUrl) ?? "https://api.firecrawl.dev",
     },
     assetSearch: {
-      engine: enumOr(assetSearch.engine, ["pixabay", "unsplash", "pexels", "disabled"], "disabled"),
+      engine: enumOr(assetSearch.engine, ["official", "pixabay", "unsplash", "pexels"], "official"),
       pixabayApiKey: optionalString(assetSearch.pixabayApiKey) ?? "",
       pixabayApiUrl: optionalString(assetSearch.pixabayApiUrl) ?? "https://pixabay.com/api",
       unsplashApiKey: optionalString(assetSearch.unsplashApiKey) ?? "",

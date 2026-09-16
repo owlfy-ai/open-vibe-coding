@@ -13,7 +13,7 @@ import type { ApplicationSession } from "@/application/session";
 import { collectModelText } from "./model-text";
 
 export interface ConversationIntelligenceError {
-  readonly code: "conversation-not-found" | "insufficient-history" | "empty-result" | "session-error";
+  readonly code: "conversation-not-found" | "insufficient-history" | "empty-result" | "session-error" | "backend-auth-required";
   readonly message: string;
 }
 
@@ -49,12 +49,13 @@ export class ConversationIntelligenceService {
     ]
       .filter(Boolean)
       .join("\n\n");
-    const summary = await collectModelText(
-      this.model,
+    const summaryResult = await this.collectText(
       "Summarize this coding conversation. Preserve requirements, architecture decisions, changed files, unresolved errors, and the current task. Return only the concise summary.",
       [this.textMessage(source)],
       signal,
     );
+    if (!summaryResult.ok) return summaryResult;
+    const summary = summaryResult.value;
     if (!summary) return err({ code: "empty-result", message: "The model returned an empty summary" });
     const context = { summary, fromIndex };
     const saved = await this.session.setCompressedContext(conversationId, context);
@@ -69,14 +70,14 @@ export class ConversationIntelligenceService {
     if (!persisted) return this.notFound(conversationId);
     const source = firstUserPrompt(persisted.conversation);
     if (!source) return err({ code: "insufficient-history", message: "No conversation text is available" });
-    const title = sanitizeTitle(
-      await collectModelText(
-        this.model,
-        titleSystemPrompt(),
-        [this.textMessage(source)],
-        signal,
-      ),
+    const titlePrompt = titleSystemPrompt();
+    const titleResult = await this.collectText(
+      titlePrompt,
+      [this.textMessage(source)],
+      signal,
     );
+    if (!titleResult.ok) return titleResult;
+    const title = sanitizeTitle(titleResult.value);
     if (!title) return err({ code: "empty-result", message: "The model returned an invalid title" });
     const saved = await this.session.updateConversation(conversationId, { title });
     return saved.ok ? ok(title) : err({ code: "session-error", message: saved.error.message });
@@ -92,10 +93,11 @@ export class ConversationIntelligenceService {
 
     const source = firstUserPrompt(persisted.conversation);
     if (!source) return ok(null);
+    const initialTitlePrompt = titleSystemPrompt();
     const title = sanitizeTitle(
       await collectModelText(
         this.model,
-        titleSystemPrompt(),
+        initialTitlePrompt,
         [this.textMessage(source)],
         signal,
       ),
@@ -118,6 +120,30 @@ export class ConversationIntelligenceService {
       createdAt: this.clock.now(),
       content: [{ type: "text", text }],
     };
+  }
+
+  private async collectText(
+    systemPrompt: string,
+    messages: readonly UserMessage[],
+    signal: AbortSignal,
+  ): Promise<Result<string, ConversationIntelligenceError>> {
+    try {
+      return ok(await collectModelText(this.model, systemPrompt, messages, signal));
+    } catch (error) {
+      const status = typeof error === "object" && error !== null && "status" in error
+        ? Number((error as { status: unknown }).status)
+        : undefined;
+      const code = typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "";
+      if (status === 401 || code === "backend-auth-required") {
+        return err({
+          code: "backend-auth-required",
+          message: error instanceof Error ? error.message : "Sign in required",
+        });
+      }
+      throw error;
+    }
   }
 
   private notFound<T>(conversationId: ConversationId): Result<T, ConversationIntelligenceError> {

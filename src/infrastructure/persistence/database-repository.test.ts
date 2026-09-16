@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_SETTINGS } from "@/domain/settings";
 import { AppDatabaseRepository } from "./database-repository";
 import { CURRENT_DATABASE_VERSION, DATABASE_STORAGE_KEY, type AppDatabase } from "./schema";
 import { InMemoryKeyValueStorage } from "./storage";
@@ -7,27 +8,7 @@ const database: AppDatabase = {
   schemaVersion: CURRENT_DATABASE_VERSION,
   migratedAt: 1,
   activeConversationId: null,
-  settings: {
-    ai: { apiType: "openai-compatible", apiKey: "", apiBaseUrl: "", model: "" },
-    webSearch: {
-      engine: "disabled",
-      tavilyApiKey: "",
-      tavilyApiUrl: "https://api.tavily.com",
-      firecrawlApiKey: "",
-      firecrawlApiUrl: "https://api.firecrawl.dev",
-    },
-    assetSearch: {
-      engine: "disabled",
-      pixabayApiKey: "",
-      pixabayApiUrl: "https://pixabay.com/api",
-      unsplashApiKey: "",
-      unsplashApiUrl: "https://api.unsplash.com",
-      pexelsApiKey: "",
-      pexelsApiUrl: "https://api.pexels.com/v1",
-    },
-    system: { language: "system", theme: "system" },
-    privacy: { memoryEnabled: true },
-  },
+  settings: DEFAULT_SETTINGS,
   conversations: {},
   snapshots: {},
   memories: [],

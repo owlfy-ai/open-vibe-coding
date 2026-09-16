@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type FormEvent } from "react";
+import { normalizeSettings } from "@/domain/settings";
+import { isBackendAuthRequiredError } from "@/infrastructure/backend";
 import type { PersistedConversation } from "@/infrastructure/persistence";
 import type { AgentRunState } from "@/domain/agent";
 import type { ConversationId, ToolMessage, UserContent } from "@/domain/conversation";
 import type { PreviewElementPromptRequest, PreviewElementSelection } from "@/application/preview";
 import { useApplication } from "../runtime";
+import { useBackendAccount } from "../auth/BackendAuthGate";
 import { interpolate, useT, type Translation } from "../i18n";
 import { Icon } from "../icons";
 import { ChatMessage } from "./ChatMessage";
@@ -15,12 +18,21 @@ const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_RASTERIZED_SVG_DIMENSION = 2048;
 const SVG_IMAGE_TYPE = "image/svg+xml";
+const PENDING_CHAT_SUBMIT_KEY = "ovc.pendingChatSubmit";
 
 interface PendingAttachment {
   readonly name: string;
   readonly mediaType: string;
   readonly size: number;
   readonly data: string;
+}
+
+interface PendingChatSubmit {
+  readonly conversationId: string;
+  readonly text: string;
+  readonly attachments: readonly PendingAttachment[];
+  readonly hiddenContext?: string;
+  readonly createdAt: number;
 }
 
 export function ChatPanel({
@@ -38,7 +50,8 @@ export function ChatPanel({
   readonly onSelectedElementClear?: () => void;
   readonly onElementPromptRequestConsumed?: () => void;
 }) {
-  const { services, serviceError, runtime } = useApplication();
+  const { database, services, serviceError, runtime } = useApplication();
+  const account = useBackendAccount();
   const t = useT();
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<readonly PendingAttachment[]>([]);
@@ -59,6 +72,8 @@ export function ChatPanel({
   const reasoningStream = liveRun.reasoning;
   const reasoningOpen = liveRun.reasoningOpen;
   const running = runState.status === "preparing" || runState.status === "streaming" || runState.status === "executing-tools";
+  const normalizedSettings = useMemo(() => normalizeSettings(database.settings), [database.settings]);
+  const officialModelEnabled = normalizedSettings.ai.apiType === "official";
   const messages = conversation?.conversation.messages ?? [];
   const canSend = Boolean(conversation && services && (input.trim() || attachments.length > 0));
 
@@ -101,6 +116,25 @@ export function ChatPanel({
   useLayoutEffect(() => {
     resizeComposerTextarea(textareaRef.current);
   }, [input]);
+
+  useEffect(() => {
+    if (runState.status !== "failed" || runState.error.code !== "backend-auth-required") return;
+    void account?.requireLogin();
+  }, [account, runState]);
+
+  useEffect(() => {
+    if (!conversation || !services || running || !account?.session) return;
+    const pending = readPendingChatSubmit();
+    if (!pending) return;
+    if (pending.conversationId !== conversation.conversation.id) return;
+    clearPendingChatSubmit();
+    setInput("");
+    setAttachments([]);
+    setAttachmentError(null);
+    const content = pendingContent(pending);
+    if (content.length === 0) return;
+    void runAgentContent(content, pending.hiddenContext ? { hiddenContext: pending.hiddenContext } : undefined);
+  }, [account?.session, conversation, running, services]);
 
   useEffect(() => {
     if (!elementPromptRequest || processedElementPromptRef.current === elementPromptRequest.requestId) return;
@@ -161,6 +195,21 @@ export function ChatPanel({
     };
   }, [attachments, t]);
 
+  function handleImagePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    // Read clipboard files synchronously; browsers may clear them after the event.
+    const files = Array.from(event.clipboardData.files);
+    const candidates = files.length > 0
+      ? files
+      : Array.from(event.clipboardData.items).flatMap((item) => {
+          const file = item.kind === "file" ? item.getAsFile() : null;
+          return file ? [file] : [];
+        });
+    const images = candidates.filter((file) => file.type.startsWith("image/") || isSupportedImageFile(file));
+    if (images.length === 0) return; // Preserve the browser's normal text paste.
+    event.preventDefault();
+    void pickAttachments(images, attachments, setAttachments, setAttachmentError, t);
+  }
+
   function handleMessagesScroll(event: React.UIEvent<HTMLDivElement>) {
     stickToBottomRef.current = isNearScrollBottom(event.currentTarget);
   }
@@ -176,10 +225,13 @@ export function ChatPanel({
     if (!canSend || !conversation || !services) return;
     const text = input.trim();
     const outgoing = attachments;
-    setInput("");
-    setAttachments([]);
-    setAttachmentError(null);
+    const hiddenContext = selectedElement
+      ? formatSelectedElementHiddenContext(selectedElement)
+      : undefined;
     if (isKnownSlashCommand(text) && outgoing.length === 0) {
+      setInput("");
+      setAttachments([]);
+      setAttachmentError(null);
       await runSlashCommand(text);
       return;
     }
@@ -192,9 +244,21 @@ export function ChatPanel({
         name: attachment.name,
       })),
     ];
-    await runAgentContent(content, selectedElement
-      ? { hiddenContext: formatSelectedElementHiddenContext(selectedElement) }
-      : undefined);
+    const pending = {
+      conversationId: conversation.conversation.id,
+      text,
+      attachments: outgoing,
+      hiddenContext,
+      createdAt: Date.now(),
+    };
+    if (!(await ensureBackendLoginForCurrentRequest(pending))) {
+      return;
+    }
+    clearPendingChatSubmit();
+    setInput("");
+    setAttachments([]);
+    setAttachmentError(null);
+    await runAgentContent(content, hiddenContext ? { hiddenContext } : undefined);
     onSelectedElementClear?.();
   }
 
@@ -203,6 +267,7 @@ export function ChatPanel({
     options: { readonly hiddenContext?: string } = {},
   ) {
     if (!conversation || !services) return;
+    if (!(await ensureBackendLoginForCurrentRequest())) return;
     const targetConversationId = conversation.conversation.id;
     const targetWasRunning = running;
     let initialTitleRequested = false;
@@ -234,6 +299,19 @@ export function ChatPanel({
     dispatchLiveRun({ type: "clear-output", conversationId: targetConversationId });
   }
 
+  async function ensureBackendLoginForCurrentRequest(pending?: PendingChatSubmit): Promise<boolean> {
+    if (!currentRequestUsesBackend()) return true;
+    if (account?.client.current() ?? account?.session) return true;
+    if (pending) writePendingChatSubmit(pending);
+    const next = await account?.requireLogin();
+    if (!next && pending) clearPendingChatSubmit();
+    return Boolean(next);
+  }
+
+  function currentRequestUsesBackend(): boolean {
+    return officialModelEnabled;
+  }
+
   async function runSlashCommand(command: string) {
     if (!conversation || !services) return;
     const id = conversation.conversation.id;
@@ -245,9 +323,23 @@ export function ChatPanel({
 
   async function compactConversation() {
     if (!conversation || !services || running || compacting) return;
+    if (!(await ensureBackendLoginForCurrentRequest())) return;
     setCompactStatus("running");
     setCompactMessage(t.chat.compacting);
-    const result = await services.conversations.compress(conversation.conversation.id);
+    let result: Awaited<ReturnType<typeof services.conversations.compress>>;
+    try {
+      result = await services.conversations.compress(conversation.conversation.id);
+    } catch (error) {
+      if (isBackendAuthRequiredError(error)) {
+        setCompactStatus("idle");
+        setCompactMessage(null);
+        await account?.requireLogin();
+        return;
+      }
+      setCompactStatus("error");
+      setCompactMessage(error instanceof Error ? error.message : t.chat.compactFailed);
+      return;
+    }
     if (result.ok) {
       setCompactStatus("success");
       setCompactMessage(t.chat.compacted);
@@ -255,6 +347,12 @@ export function ChatPanel({
         setCompactStatus("idle");
         setCompactMessage(null);
       }, 2400);
+      return;
+    }
+    if (result.error.code === "backend-auth-required") {
+      setCompactStatus("idle");
+      setCompactMessage(null);
+      await account?.requireLogin();
       return;
     }
     setCompactStatus("error");
@@ -403,6 +501,7 @@ export function ChatPanel({
             ref={textareaRef}
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            onPaste={handleImagePaste}
             onCompositionStart={() => {
               composingRef.current = true;
             }}
@@ -500,7 +599,7 @@ function agentFailureTitle(code: string, t: Translation): string {
 }
 
 async function pickAttachments(
-  files: FileList | null,
+  files: FileList | readonly File[] | null,
   existing: readonly PendingAttachment[],
   setAttachments: (attachments: readonly PendingAttachment[]) => void,
   setError: (message: string | null) => void,
@@ -610,4 +709,48 @@ function readBlobAsDataUrl(blob: Blob, name: string): Promise<string> {
     reader.addEventListener("error", () => reject(reader.error ?? new Error(`Failed to read ${name}`)));
     reader.readAsDataURL(blob);
   });
+}
+
+function pendingContent(pending: PendingChatSubmit): UserContent[] {
+  return [
+    ...(pending.text ? [{ type: "text" as const, text: pending.text }] : []),
+    ...pending.attachments.map((attachment): UserContent => ({
+      type: "image",
+      mediaType: attachment.mediaType,
+      data: attachment.data,
+      name: attachment.name,
+    })),
+  ];
+}
+
+function readPendingChatSubmit(): PendingChatSubmit | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_CHAT_SUBMIT_KEY);
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as PendingChatSubmit;
+    if (Date.now() - pending.createdAt > 30 * 60 * 1000) {
+      clearPendingChatSubmit();
+      return null;
+    }
+    return pending;
+  } catch {
+    clearPendingChatSubmit();
+    return null;
+  }
+}
+
+function writePendingChatSubmit(pending: PendingChatSubmit): void {
+  try {
+    sessionStorage.setItem(PENDING_CHAT_SUBMIT_KEY, JSON.stringify(pending));
+  } catch {
+    try {
+      sessionStorage.setItem(PENDING_CHAT_SUBMIT_KEY, JSON.stringify({ ...pending, attachments: [] }));
+    } catch {
+      // Losing the redirect draft is better than blocking the login flow.
+    }
+  }
+}
+
+function clearPendingChatSubmit(): void {
+  sessionStorage.removeItem(PENDING_CHAT_SUBMIT_KEY);
 }

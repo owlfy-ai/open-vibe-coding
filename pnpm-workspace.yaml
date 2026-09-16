@@ -1,4 +1,7 @@
 allowBuilds:
+  '@clerk/shared': true
   es5-ext: false
   esbuild: false
   msw: false
+  sharp: true
+  workerd: true
