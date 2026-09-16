@@ -8,18 +8,16 @@ import type {
   ThemePreference,
   WebSearchEngine,
 } from "@/domain/settings";
-import { normalizeSettings } from "@/domain/settings";
 import { useApplication } from "../runtime";
 import { Icon } from "../icons";
 import { dictionary, resolveLanguage } from "../i18n";
 
 export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
   const { database, runtime, refreshServices } = useApplication();
-  const [settings, setSettings] = useState<AppSettings>(() => normalizeSettings(database.settings));
+  const [settings, setSettings] = useState<AppSettings>(database.settings);
   const [tab, setTab] = useState<"model" | "research" | "appearance" | "memory">("model");
   const [saving, setSaving] = useState(false);
   const t = dictionary(resolveLanguage(settings.system.language));
-  const officialModel = settings.ai.apiType === "official";
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -68,31 +66,21 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
                       })
                     }
                   >
-                    <option value="official">{t.settings.officialModel}</option>
                     <option value="openai-compatible">{t.settings.openAiCompatible}</option>
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
                     <option value="google">Google</option>
                   </select>
                 </Field>
-                {officialModel ? (
-                  <div className="ob-settings-note">
-                    <strong>{t.settings.officialModel}</strong>
-                    <p>{t.settings.officialModelHelp}</p>
-                  </div>
-                ) : (
-                  <>
-                    <Field label={t.settings.apiBaseUrl}>
-                      <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
-                    </Field>
-                    <Field label={t.settings.apiKey}>
-                      <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
-                    </Field>
-                    <Field label={t.settings.model}>
-                      <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
-                    </Field>
-                  </>
-                )}
+                <Field label={t.settings.apiBaseUrl}>
+                  <input value={settings.ai.apiBaseUrl} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiBaseUrl: event.target.value } })} />
+                </Field>
+                <Field label={t.settings.apiKey}>
+                  <input type="password" autoComplete="off" value={settings.ai.apiKey} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, apiKey: event.target.value } })} />
+                </Field>
+                <Field label={t.settings.model}>
+                  <input value={settings.ai.model} onChange={(event) => setSettings({ ...settings, ai: { ...settings.ai, model: event.target.value } })} />
+                </Field>
               </>
             ) : null}
             {tab === "research" ? (
@@ -106,10 +94,9 @@ export function SettingsPanel({ onClose }: { readonly onClose: () => void }) {
                 {settings.webSearch.engine === "firecrawl" ? <Field label={t.settings.firecrawlApiKey}><input type="password" value={settings.webSearch.firecrawlApiKey} onChange={(event) => setSettings({ ...settings, webSearch: { ...settings.webSearch, firecrawlApiKey: event.target.value } })} /></Field> : null}
                 <Field label={t.settings.imageSearch}>
                   <select value={settings.assetSearch.engine} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, engine: event.target.value as AssetSearchEngine } })}>
-                    <option value="official">{t.settings.officialImageSearch}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option><option value="pexels">Pexels</option>
+                    <option value="disabled">{t.settings.disabled}</option><option value="pixabay">Pixabay</option><option value="unsplash">Unsplash</option><option value="pexels">Pexels</option>
                   </select>
                 </Field>
-                {settings.assetSearch.engine === "official" ? <div className="ob-callout"><strong>{t.settings.officialImageSearch}</strong><p>{t.settings.officialImageSearchHelp}</p></div> : null}
                 {settings.assetSearch.engine === "pixabay" ? <Field label={t.settings.pixabayApiKey}><input type="password" value={settings.assetSearch.pixabayApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, pixabayApiKey: event.target.value } })} /></Field> : null}
                 {settings.assetSearch.engine === "unsplash" ? <Field label={t.settings.unsplashApiKey}><input type="password" value={settings.assetSearch.unsplashApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, unsplashApiKey: event.target.value } })} /></Field> : null}
                 {settings.assetSearch.engine === "pexels" ? <Field label={t.settings.pexelsApiKey}><input type="password" value={settings.assetSearch.pexelsApiKey} onChange={(event) => setSettings({ ...settings, assetSearch: { ...settings.assetSearch, pexelsApiKey: event.target.value } })} /></Field> : null}

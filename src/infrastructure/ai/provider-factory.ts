@@ -5,7 +5,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel, ToolSet } from "ai";
 import type { ProviderType } from "@/domain/settings";
 
-export type AiProviderType = Exclude<ProviderType, "official">;
+export type AiProviderType = ProviderType;
 
 export interface AiProviderConfig {
   readonly type: AiProviderType;
