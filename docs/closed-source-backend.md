@@ -13,12 +13,12 @@ There is no browser-language split and no China/global login mode switch.
 VITE_OVC_APP_ID=qidea.ai
 VITE_OVC_BACKEND_URL=https://api.owlfy.ai
 VITE_OVC_LITELLM_BASE_URL=https://api.owlfy.ai/litellm/v1
-VITE_OVC_LITELLM_MODEL=backup_glm5.3
+VITE_OVC_LITELLM_MODEL=backup_qidea
 VITE_OVC_APP_NAME=Open Vibe Coding
 VITE_CLERK_PUBLISHABLE_KEY=pk_live_Y2xlcmsucWlkZWEuYWkk
 ```
 
-`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted. `VITE_OVC_LITELLM_BASE_URL` defaults to `<backend>/litellm/v1`, and `VITE_OVC_LITELLM_MODEL` defaults to `backup_glm5.3`.
+`VITE_OVC_BACKEND_URL` defaults to `https://api.owlfy.ai` when omitted. `VITE_OVC_LITELLM_BASE_URL` defaults to `<backend>/litellm/v1`, and `VITE_OVC_LITELLM_MODEL` defaults to `backup_qidea`.
 
 ## Auth Flow
 
@@ -85,7 +85,11 @@ Production accepts Clerk tokens from `https://qidea.ai` and requires the `azp` c
 
 `.env.production` points to `https://api.owlfy.ai`. Existing `.env.local` keeps `http://localhost:8083` for local backend development; both select `qidea.ai` and the provided public key. Configure a separate Clerk development instance if needed for local development.
 
-Multi-product accounts do not receive Owlfy balances, membership, or automatic LiteLLM keys. The current Go allowlist does not expose `/api/publish/*` to qidea.ai. Official model access, image search, publishing/gallery and credit billing need a separate product-aware integration; this login configuration does not enable those business features. Real login remains unverified until the new server Secret Key and Clerk setup are complete and the backend is deployed.
+Multi-product accounts do not inherit Owlfy balances or membership. Qidea opts into model-key provisioning with `applications.qidea.litellm-enabled: true` on the Go backend. `GET /api/user/getUserInfo` provisions a missing LiteLLM key for the signed-in Qidea account, using its globally unique `user_<ID>`; the existing billing callback charges that account's own Credits. Other new products remain disabled by default. This setting controls provisioning and does not revoke previously issued keys. Deploy the backend change before expecting model access to work.
+
+The current Go allowlist does not expose `/api/publish/*` to qidea.ai. Image search and publishing/gallery still need a separate product-aware integration; the model change does not enable those APIs.
+
+The official-model adapter refreshes older saved sessions once when their model key is missing. A signed-in account that still has no model key receives a model-access error, not a misleading sign-in request. Missing or expired backend sessions still require login. The adapter continues to use LiteLLM with the `backup_qidea` alias, streaming and agent tool calls; it does not use the separate, non-streaming Qwen endpoint.
 
 ## Model API
 
@@ -99,7 +103,7 @@ The request body is the standard OpenAI Chat Completions streaming shape:
 
 ```json
 {
-  "model": "backup_glm5.3",
+  "model": "backup_qidea",
   "stream": true,
   "messages": [],
   "tools": []
@@ -110,4 +114,4 @@ The LiteLLM backend owns provider routing, subscription checks, credit metering,
 
 Users can still switch the model provider in Settings to OpenAI-compatible, OpenAI, Anthropic, or Google. Those third-party providers use the user's own API key and base URL directly from the browser, bypass the backend model path, and do not consume backend Credits.
 
-When the official model provider is selected, requests use the backend-managed `backup_glm5.3` model alias.
+When the official model provider is selected, requests use the backend-managed `backup_qidea` model alias.

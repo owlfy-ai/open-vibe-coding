@@ -31,11 +31,11 @@ describe("settings domain", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("always normalizes official model settings to backup_glm5.3", () => {
+  it.each(["Standard", "backup_glm5.3", "backup_qidea"])("normalizes saved official model %s to backup_qidea", (model) => {
     expect(normalizeSettings({
       ...DEFAULT_SETTINGS,
-      ai: { ...DEFAULT_SETTINGS.ai, model: "Standard" },
-    }).ai.model).toBe("backup_glm5.3");
+      ai: { ...DEFAULT_SETTINGS.ai, model },
+    }).ai.model).toBe("backup_qidea");
   });
 
   it("fills newly added asset-search fields for older persisted settings", () => {

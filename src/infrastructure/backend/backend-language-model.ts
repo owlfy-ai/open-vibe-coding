@@ -4,17 +4,33 @@ import { AiSdkLanguageModelAdapter } from "@/infrastructure/ai/ai-sdk-language-m
 import type { BackendClient } from "./backend-client";
 import { BackendAuthRequiredError } from "./backend-client";
 
+export class BackendModelAccessError extends Error {
+  readonly status = 403;
+  readonly code = "backend-model-unavailable";
+
+  constructor() {
+    super("Your account is signed in, but the official model service is not enabled. Please contact the administrator.");
+    this.name = "BackendModelAccessError";
+  }
+}
+
 export class BackendLanguageModelAdapter implements LanguageModelPort {
   constructor(
     private readonly backend: BackendClient,
-    private readonly model = "backup_glm5.3",
+    private readonly model = "backup_qidea",
   ) {}
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
-    const session = this.backend.current();
-    if (!session?.liteLlmKey) {
+    let session = this.backend.current();
+    if (!session?.accessToken) {
       throw new BackendAuthRequiredError("Sign in to use the official model service");
     }
+    // An older saved login can predate model provisioning on the backend.
+    if (!session.liteLlmKey) session = await this.backend.refresh();
+    if (!session?.accessToken) {
+      throw new BackendAuthRequiredError("Your session has expired. Please sign in again.");
+    }
+    if (!session.liteLlmKey) throw new BackendModelAccessError();
     const provider = createOpenAICompatible({
       name: "owlfy",
       baseURL: this.backend.liteLlmBaseUrl(),

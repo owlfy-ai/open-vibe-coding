@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     apiType: "official",
     apiKey: "",
     apiBaseUrl: "",
-    model: "backup_glm5.3",
+    model: "backup_qidea",
   },
   webSearch: {
     engine: "disabled",
@@ -203,7 +203,7 @@ function isEmptyLegacyProvider(
 
 function normalizeOfficialModel(model: string): string {
   void model;
-  return "backup_glm5.3";
+  return "backup_qidea";
 }
 
 function stringOrDefault(value: unknown, fallback: string): string {

@@ -17,7 +17,7 @@ export function getOperationsConfig(): OperationsConfig {
     liteLlmBaseUrl: trimTrailingSlash(
       import.meta.env.VITE_OVC_LITELLM_BASE_URL || `${backendUrl}/litellm/v1`,
     ),
-    liteLlmModel: import.meta.env.VITE_OVC_LITELLM_MODEL?.trim() || "backup_glm5.3",
+    liteLlmModel: import.meta.env.VITE_OVC_LITELLM_MODEL?.trim() || "backup_qidea",
     appName: import.meta.env.VITE_OVC_APP_NAME?.trim() || "Open Vibe Coding",
     clerkPublishableKey: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim() || "pk_live_Y2xlcmsucWlkZWEuYWkk",
   };
