@@ -397,7 +397,13 @@ svg {
 .ob-sidebar-collapsed-bottom {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 14px;
+}
+
+.ob-sidebar-collapsed .ob-brand-mark {
+  width: 34px;
+  height: 34px;
 }
 
 .ob-sidebar-collapsed-bottom {
